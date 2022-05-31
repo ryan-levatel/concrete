@@ -1,5 +1,7 @@
 import argparse
 import concurrent.futures
+from math import ceil, log2
+
 import dataclasses
 import datetime
 import pathlib
@@ -27,15 +29,15 @@ parser.add_argument('--output-file', '-o', type=str, dest='output_filename',
                     help='Output file containing correction coefficients, formatted as JSON'
                          ' (default: correction_coefficients.json)')
 parser.add_argument('--file-pattern', '-f', type=str, dest='file_pattern',
-                    default='*.acquisition_external_product',
+                    default='*.acquisition_external_product*',
                     help='File pattern used to store result files from chunked sampling'
                          ' (default: "*.acquisition_external_product")')
 parser.add_argument('--analysis-only', '-A', action= 'store_true', dest='analysis_only',
                     help='If this flag is set, no sampling will be done, it will only try to'
                          ' analyze existing results')
-parser.add_argument('sampling_args', nargs=argparse.REMAINDER,
-                    help='Arguments directly passed to sampling program, to get an exhaustive list'
-                         ' of options run command: `cargo run -- --help`')
+# parser.add_argument('sampling_args', nargs=argparse.REMAINDER,
+#                     help='Arguments directly passed to sampling program, to get an exhaustive list'
+#                          ' of options run command: `cargo run -- --help`')
 
 
 @dataclasses.dataclass(init=False)
@@ -54,7 +56,7 @@ class SamplingLine:
 
     def __init__(self, line: str):
         split_line = line.strip().split(", ")
-        self.parameters = [float(x) for x in split_line[:5]]
+        self.parameters = [float(x) for x in split_line[:4]]
         self.input_variance = float(split_line[5])
         self.output_variance_exp = float(split_line[6])
         self.output_variance_th = float(split_line[7])
