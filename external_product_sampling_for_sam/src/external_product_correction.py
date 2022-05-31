@@ -118,7 +118,7 @@ def extract_from_acquisitions(filename):
             np.array(th_output_variance), np.array(input_variance))
 
 
-def get_input(filename):
+def get_input(filename, split_in_k=False):
     """
     :param filename: result filename as :class:`pathlib.Path`
     :return: :class:`tuple` of X and Y values
@@ -129,11 +129,35 @@ def get_input(filename):
      input_variance) = extract_from_acquisitions(filename)
     y_values = np.maximum(0., (exp_output_variance - input_variance))
     x_values = parameters
-    return x_values, y_values
+
+    mask = np.where(y_values > 0.)
+    x_values, y_values = x_values[mask], y_values[mask]
+
+    if split_in_k:
+        x_values_splitted_in_k = []
+        y_values_splitted_in_k = []
+
+        for k in range(1, 7):
+            mask = np.where(x_values[:,1] == k)[0]
+            if len(np.bincount(mask)) > 1:
+                x_values_splitted_in_k.append(x_values[mask, :])
+                y_values_splitted_in_k.append(y_values[mask])
+        return x_values_splitted_in_k, y_values_splitted_in_k
+    else:
+        return x_values, y_values
 
 
-def get_input_without_outlier(filename):
-    return remove_outlier(*get_input(filename))
+def get_input_without_outlier(filename, split_in_k=False):
+    if split_in_k:
+        x_values_splitted_in_k, y_values_splitted_in_k = get_input(filename, split_in_k=True)
+        x_values_splitted_in_k_new, y_values_splitted_in_k_new = [], []
+        for (x_values, y_values) in zip(x_values_splitted_in_k, y_values_splitted_in_k):
+            x, y = remove_outlier(x_values, y_values)
+            x_values_splitted_in_k_new.append(x)
+            y_values_splitted_in_k_new.append(y)
+        return x_values_splitted_in_k_new, y_values_splitted_in_k_new
+    else:
+        return remove_outlier(*get_input(filename))
 
 
 def remove_outlier(x_values, y_values):
@@ -146,7 +170,7 @@ def remove_outlier(x_values, y_values):
         :class:`list`
     """
     # identify outliers in the training dataset
-    iso = IsolationForest(contamination=0.1)  # Contamination value obtained by experience
+    iso = IsolationForest(contamination=0.2)  # Contamination value obtained by experience
     yhat = iso.fit_predict(x_values)
 
     # select all rows that are not outliers
@@ -167,7 +191,7 @@ def fft_noise(x, a, d):
     level = x[:, 2]
     logbase = x[:, 3]
     theoretical_var = x[:, 4]
-    return 2 ** a * 2 ** 22 * level * 2. ** (2 * logbase) * N ** d + theoretical_var
+    return 2 ** a * (k + 1) * 2 ** 22 * (level * 2. ** (2 * logbase)) * N ** d + theoretical_var
 
 
 def log_fft_noise(x, a, d):
@@ -178,17 +202,56 @@ def train(x_values, y_values):
     weights, _ = curve_fit(log_fft_noise, x_values, np.log2(y_values))
     return weights
 
+def var_to_bit(variance):
+    if variance <= 0:
+        return np.nan
+    else:
+        return ceil(0.5 * log2(variance))
 
-def get_weights(filename):
+
+def test(x_values, y_values, weights):
+    mse = 0.
+    mse_without_correction = 0.
+    for index in range(len(x_values)):
+        params = np.array([x_values[index, :]])
+        real_out = y_values[index]
+        pred_out = max(fft_noise(params, *list(weights))[0], 0.000001)
+        mse += (var_to_bit(real_out) - var_to_bit(pred_out)) ** 2
+        mse_without_correction += (var_to_bit(real_out) - var_to_bit(params[0, 4])) ** 2
+        # mse_without_correction += (var_to_bit(real_out) ) ** 2
+
+    mse /= len(x_values)
+    mse_without_correction /= len(x_values)
+    return mse, mse_without_correction
+
+
+def get_weights(filename, split_in_k=False):
     """
     Get weights from sampling results.
 
     :param filename: results filename as :class:`pathlib.Path`
     :return: :class:`dict` of weights formatted as ``{"a": <float>, "d": <float>}``
     """
-    x_values, y_values = get_input_without_outlier(filename)
-    weights = train(x_values, y_values)
-    return {"a": weights[0], "d": weights[1]}
+    x_values_k_splitted_in_k, y_values_splitted_in_k = get_input_without_outlier(filename, split_in_k=split_in_k)
+
+    if split_in_k:
+        output_dict = {}
+        for x_values, y_values in zip(x_values_k_splitted_in_k, y_values_splitted_in_k):
+            print(f"--------- k = {int(x_values[0, 1])} ---------")
+            weights = train(x_values, y_values)
+            mse, mse_wo_correction = test(x_values, y_values, weights)
+            print(f"> MSE: {mse}")
+            print(f"> MSE w/o correction: {mse_wo_correction}")
+            output_dict[int(x_values[0, 1])] = {"a": weights[0], "d": weights[1]}
+        return output_dict
+
+    else:
+        x_values, y_values = x_values_k_splitted_in_k, y_values_splitted_in_k
+        weights = train(x_values, y_values)
+        mse, mse_wo_correction = test(x_values, y_values, weights)
+        print(f"> MSE: {mse}")
+        print(f"> MSE w/o correction: {mse_wo_correction}")
+        return {"a": weights[0], "d": weights[1]}
 
 
 def write_to_file(filename, obj):
@@ -240,7 +303,6 @@ def run_sampling_chunk(total_chunks, identity, input_args):
 
 if __name__ == "__main__":
     args = parser.parse_args()
-
     if not args.analysis_only:
         with concurrent.futures.ThreadPoolExecutor(max_workers=args.chunks) as executor:
             futures = []
@@ -252,4 +314,4 @@ if __name__ == "__main__":
 
     result_file = concatenate_result_files(args.file_pattern)
     # Extracting the weights and write it to a file
-    write_to_file(args.output_filename, get_weights(result_file))
+    write_to_file(args.output_filename, get_weights(result_file, split_in_k=True))

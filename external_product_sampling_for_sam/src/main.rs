@@ -286,7 +286,14 @@ fn main() {
         Parameter::Singleton(1 << 14),
     ];
     let max_polynomial_size = 1 << 14;
-    let glwe_dimensions = vec![Parameter::Singleton(1)];
+    let glwe_dimensions = vec![
+        Parameter::Singleton(1),
+        Parameter::Singleton(2),
+        Parameter::Singleton(3),
+        Parameter::Singleton(4),
+        Parameter::Singleton(5),
+        Parameter::Singleton(6),
+    ];
 
     let mut base_logs = vec![1usize; 64];
     for b in 1..65 {
@@ -322,98 +329,101 @@ fn main() {
         let glwe_noise =
             Variance::from_variance(minimal_variance_for_security_64(glwe_dimension, poly_size));
 
-        let mut parameters = GlweCiphertextGgswCiphertextExternalProductParameters {
-            ggsw_noise,
-            glwe_noise,
-            glwe_dimension,
-            ggsw_encrypted_value: 0,
-            polynomial_size: poly_size,
-            decomposition_base_log: dec_base_log,
-            decomposition_level_count: dec_level_count,
-        };
+        if glwe_dimension.0 * poly_size.0 <= 1 << 14 {
+            let mut parameters = GlweCiphertextGgswCiphertextExternalProductParameters {
+                ggsw_noise,
+                glwe_noise,
+                glwe_dimension,
+                ggsw_encrypted_value: 0,
+                polynomial_size: poly_size,
+                decomposition_base_log: dec_base_log,
+                decomposition_level_count: dec_level_count,
+            };
 
-        let noise_prediction = concrete_npe::estimate_external_product_noise_with_binary_ggsw::<
-            u64,
-            _,
-            _,
-            BinaryKeyKind,
-        >(
-            poly_size,
-            glwe_dimension,
-            glwe_noise,
-            glwe_noise,
-            dec_base_log,
-            dec_level_count,
-        );
+            let noise_prediction = concrete_npe::estimate_external_product_noise_with_binary_ggsw::<
+                u64,
+                _,
+                _,
+                BinaryKeyKind,
+            >(
+                poly_size,
+                glwe_dimension,
+                glwe_noise,
+                glwe_noise,
+                dec_base_log,
+                dec_level_count,
+            );
 
-        let mut errors = vec![0.; sample_size.0 * size.get_singleton() * total_repetitions.0];
+            let mut errors = vec![0.; sample_size.0 * size.get_singleton() * total_repetitions.0];
 
-        if noise_prediction.get_variance() < 1. / 12. {
-            for (_, errs) in (0..total_repetitions.0)
-                .zip(errors.chunks_mut(sample_size.0 * size.get_singleton()))
-            {
-                parameters.ggsw_encrypted_value = match ggsw_value {
-                    Some(value) => value,
-                    // GGSW value is randomly generated here so that other functions can retrieve
-                    // its value
-                    None => rand::thread_rng().gen_range(0, 2),
-                };
+            if noise_prediction.get_variance() < 1. / 12. {
+                for (_, errs) in (0..total_repetitions.0)
+                    .zip(errors.chunks_mut(sample_size.0 * size.get_singleton()))
+                {
+                    parameters.ggsw_encrypted_value = match ggsw_value {
+                        Some(value) => value,
+                        // GGSW value is randomly generated here so that other functions can retrieve
+                        // its value
+                        None => rand::thread_rng().gen_range(0, 2),
+                    };
 
-                let repetitions = <GlweCiphertextGgswCiphertextExternalProductFixture as Fixture<
-                    Precision,
-                    CoreEngine,
-                    (GlweCiphertext64, FourierGgswCiphertext64, GlweCiphertext64),
-                >>::generate_random_repetition_prototypes(
-                    &parameters, &mut maker
-                );
-                let outputs = <GlweCiphertextGgswCiphertextExternalProductFixture as Fixture<
-                    Precision,
-                    CoreEngine,
-                    (GlweCiphertext64, FourierGgswCiphertext64, GlweCiphertext64),
-                >>::sample(
-                    &mut maker,
-                    &mut engine,
-                    &parameters,
-                    &repetitions,
-                    sample_size,
-                );
-                let (raw_inputs, output): (Vec<_>, Vec<_>) = outputs.iter().cloned().unzip();
-                let raw_input_plaintext_vector =
-                    raw_inputs.into_iter().flatten().collect::<Vec<_>>();
-                let output_plaintext_vector = output.into_iter().flatten().collect::<Vec<_>>();
+                    let repetitions =
+                        <GlweCiphertextGgswCiphertextExternalProductFixture as Fixture<
+                            Precision,
+                            CoreEngine,
+                            (GlweCiphertext64, FourierGgswCiphertext64, GlweCiphertext64),
+                        >>::generate_random_repetition_prototypes(
+                            &parameters, &mut maker
+                        );
+                    let outputs = <GlweCiphertextGgswCiphertextExternalProductFixture as Fixture<
+                        Precision,
+                        CoreEngine,
+                        (GlweCiphertext64, FourierGgswCiphertext64, GlweCiphertext64),
+                    >>::sample(
+                        &mut maker,
+                        &mut engine,
+                        &parameters,
+                        &repetitions,
+                        sample_size,
+                    );
+                    let (raw_inputs, output): (Vec<_>, Vec<_>) = outputs.iter().cloned().unzip();
+                    let raw_input_plaintext_vector =
+                        raw_inputs.into_iter().flatten().collect::<Vec<_>>();
+                    let output_plaintext_vector = output.into_iter().flatten().collect::<Vec<_>>();
 
-                // errors[rep * sample_size.0 * *size..(rep + 1) * sample_size.0 * *size] =
-                compute_error(
-                    errs,
-                    output_plaintext_vector,
-                    raw_input_plaintext_vector,
-                    parameters.ggsw_encrypted_value as u64,
-                );
-            }
-            let _mean_err = mean(&errors).unwrap();
-            let std_err = std_deviation(&errors).unwrap();
-            if DEBUG {
-                write_to_file_debug(&parameters, &errors, id);
+                    // errors[rep * sample_size.0 * *size..(rep + 1) * sample_size.0 * *size] =
+                    compute_error(
+                        errs,
+                        output_plaintext_vector,
+                        raw_input_plaintext_vector,
+                        parameters.ggsw_encrypted_value as u64,
+                    );
+                }
+                let _mean_err = mean(&errors).unwrap();
+                let std_err = std_deviation(&errors).unwrap();
+                if DEBUG {
+                    write_to_file_debug(&parameters, &errors, id);
+                } else {
+                    write_to_file(
+                        &parameters,
+                        variance_to_stddev(glwe_noise),
+                        std_err,
+                        variance_to_stddev(noise_prediction),
+                        id,
+                    );
+                }
             } else {
-                write_to_file(
-                    &parameters,
-                    variance_to_stddev(glwe_noise),
-                    std_err,
-                    variance_to_stddev(noise_prediction),
-                    id,
-                );
-            }
-        } else {
-            if DEBUG {
-                write_to_file_debug(&parameters, &vec![], 0usize)
-            } else {
-                write_to_file(
-                    &parameters,
-                    variance_to_stddev(glwe_noise),
-                    variance_to_stddev(Variance::from_variance(1. / 12.)),
-                    variance_to_stddev(Variance::from_variance(1. / 12.)),
-                    id,
-                )
+                if DEBUG {
+                    write_to_file_debug(&parameters, &vec![], 0usize)
+                } else {
+                    write_to_file(
+                        &parameters,
+                        variance_to_stddev(glwe_noise),
+                        variance_to_stddev(Variance::from_variance(1. / 12.)),
+                        variance_to_stddev(Variance::from_variance(1. / 12.)),
+                        id,
+                    )
+                }
             }
         }
         // }
