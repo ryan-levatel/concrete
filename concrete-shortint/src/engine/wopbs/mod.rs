@@ -97,16 +97,17 @@ impl ShortintEngine {
         )
     }
 
+
+    //TODO: avoid LUT cloning
     pub(crate) fn circuit_bootstrap_vertical_packing(
         &mut self,
         wopbs_key: &WopbsKey,
         sks: &ServerKey,
         ct_in: &mut Ciphertext,
-        lut: &[Vec<u64>],
+        lut: &Vec<u64>,
     ) -> EngineResult<Vec<Ciphertext>> {
         let delta = (1_usize << 63) / (sks.message_modulus.0 * sks.carry_modulus.0);
         let delta_log = DeltaLog(f64::log2(delta as f64) as usize);
-        println!("delta log = {}", delta_log.0);
 
         let (buffers, _engine, _) = self.buffers_for_key(sks);
 
@@ -125,7 +126,7 @@ impl ShortintEngine {
         vec_lwe.reverse();
 
         let vec_ct_out = vertical_packing_cbs_binary_v0(
-            lut.to_vec(),
+            [lut.clone()].to_vec(),
             &mut buffers.fourier,
             &wopbs_key.small_bsk.0,
             &vec_lwe.clone(),
@@ -152,7 +153,7 @@ impl ShortintEngine {
         wopbs_key: &WopbsKey,
         sks: &ServerKey,
         ct_in: &mut Ciphertext,
-        lut: &[Vec<u64>],
+        lut: &Vec<u64>,
     ) -> EngineResult<Vec<Ciphertext>> {
         //NO PADDING BIT
         let delta = (1_usize << 63) / (sks.message_modulus.0 * sks.carry_modulus.0) * 2;
@@ -162,7 +163,20 @@ impl ShortintEngine {
         let (buffers, _, _) = self.buffers_for_key(sks);
 
         let nb_bit_to_extract =
-            f64::log2((sks.message_modulus.0 * sks.carry_modulus.0) as f64) as usize;
+            f64::log2((ct_in.message_modulus.0 * ct_in.carry_modulus.0) as f64).ceil() as usize;
+
+        println!("Number of bit to extract : {}", nb_bit_to_extract);
+
+        // trick ( ct - delta/2 + delta/2^4  )
+        let lwe_size = ct_in.ct.0.lwe_size().0;
+        let mut cont = vec![0; lwe_size];
+        cont[lwe_size - 1] = (1 << (64 - nb_bit_to_extract - 1)) - (1 << (64 -
+            nb_bit_to_extract - 5));
+        let tmp = LweCiphertext::from_container(cont);
+        ct_in.ct.0.update_with_sub(&tmp);
+        println!("lwe ize = {}, ct_in_size = {}", lwe_size, ct_in.ct.0.lwe_size().0);
+
+
 
         let mut vec_lwe = extract_bit_v0_v1(
             delta_log,
@@ -176,7 +190,7 @@ impl ShortintEngine {
         vec_lwe.reverse();
 
         let vec_ct_out = vertical_packing_cbs_binary_v0(
-            lut.to_vec(),
+            [lut.clone()].to_vec(),
             &mut buffers.fourier,
             &wopbs_key.small_bsk.0,
             &vec_lwe.clone(),

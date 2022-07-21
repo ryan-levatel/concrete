@@ -4,8 +4,9 @@ use crate::parameters::parameters_wopbs_message_carry::*;
 use crate::Parameters;
 use paste::paste;
 use rand::Rng;
+use crate::parameters::MessageModulus;
 
-const NB_TEST: usize = 10;
+const NB_TEST: usize = 100;
 
 macro_rules! create_parametrized_test{
     ($name:ident { $($param:ident),* }) => {
@@ -93,6 +94,9 @@ macro_rules! create_parametrized_test{
 }
 create_parametrized_test!(wopbs_v0);
 create_parametrized_test!(wopbs_v0_norm2);
+create_parametrized_test!(generate_lut);
+create_parametrized_test!(generate_lut_modulus);
+create_parametrized_test!(generate_lut_modulus_not_power_of_two);
 
 fn wopbs_v0(param: Parameters) {
     let keys = KEY_CACHE_WOPBS.get_from_param(param);
@@ -115,7 +119,8 @@ fn wopbs_v0(param: Parameters) {
             );
         }
         let lut_res = lut.clone();
-        let ct_res = wopbs_key.circuit_bootstrap_vertical_packing(sks, &mut ct, &[lut; 1]);
+
+        let ct_res = wopbs_key.circuit_bootstrap_vertical_packing(&sks, &mut ct, &lut);
         let res = cks.decrypt_message_and_carry(&ct_res[0]);
         assert_eq!(res, lut_res[clear] / (1 << delta));
     }
@@ -142,10 +147,75 @@ fn wopbs_v0_norm2(param: Parameters) {
         }
 
         let lut_res = lut.clone();
-        let vec_lut = vec![lut; 1];
+        let vec_lut = lut;
         let ct_res =
             wopbs_key.circuit_bootstrap_vertical_packing_without_padding(sks, &mut ct, &vec_lut);
         let res = cks.decrypt_message_and_carry_without_padding(&ct_res[0]);
         assert_eq!(res, lut_res[clear] / (1 << delta));
+    }
+}
+
+fn generate_lut(param: Parameters) {
+    let (cks, sks, wopbs_key) = KEY_CACHE_WOPBS.get_from_param(param);
+    let mut rng = rand::thread_rng();
+
+    for _ in 0..NB_TEST {
+
+        let message_modulus = param.message_modulus.0 as u64;
+        let m = rng.gen::<u64>() % message_modulus;
+
+        let mut ct = cks.encrypt(m);
+
+        let lut = wopbs_key.generate_lut(&ct, |x| (x * x) % message_modulus);
+        let ct_res = wopbs_key.circuit_bootstrap_vertical_packing(&sks, &mut ct, &lut);
+
+        let res = cks.decrypt(&ct_res[0]);
+        assert_eq!(res, (m*m)%message_modulus);
+    }
+}
+
+fn generate_lut_modulus(param: Parameters) {
+
+    let (cks, sks, wopbs_key) = KEY_CACHE_WOPBS.get_from_param(param);
+    let mut rng = rand::thread_rng();
+
+    for _ in 0..NB_TEST {
+        let mut message_modulus = MessageModulus(rng.gen::<usize>() % param.message_modulus.0);
+        while(message_modulus.0 == 0) || (message_modulus.0 == 1) {
+            message_modulus = MessageModulus(rng.gen::<usize>() % param.message_modulus.0);
+        }
+        let m = rng.gen::<usize>() % message_modulus.0;
+
+        let mut ct = cks.encrypt_with_message_modulus(m as u64, message_modulus);
+
+        let lut = wopbs_key.generate_lut(&ct, |x| (x * x) % message_modulus.0 as u64);
+        let ct_res = wopbs_key.circuit_bootstrap_vertical_packing(&sks, &mut ct, &lut);
+
+        let res = cks.decrypt(&ct_res[0]);
+        assert_eq!(res as usize, (m*m)%message_modulus.0);
+    }
+}
+
+fn generate_lut_modulus_not_power_of_two(param: Parameters) {
+    let (cks, sks, wopbs_key) = KEY_CACHE_WOPBS.get_from_param(param);
+    let mut rng = rand::thread_rng();
+
+    for _ in 0..NB_TEST {
+        let mut message_modulus = MessageModulus(rng.gen::<usize>() % param.message_modulus.0);
+        while(message_modulus.0 == 0) || (message_modulus.0 == 1) {
+            message_modulus = MessageModulus(rng.gen::<usize>() % param.message_modulus.0);
+        }
+        message_modulus = MessageModulus(3);
+        let m = rng.gen::<usize>() % message_modulus.0;
+        let mut ct = cks.encrypt_with_message_modulus_not_power_of_two(m as u64, message_modulus
+            .0 as u8);
+          let lut = wopbs_key.generate_lut_without_padding(&ct, |x| (x) % message_modulus.0 as
+              u64);
+
+          let ct_res = wopbs_key.circuit_bootstrap_vertical_packing_without_padding(&sks, &mut ct, &lut);
+          let res = cks.decrypt_message_and_carry_not_power_of_two(&ct_res[0], message_modulus.0
+                                                                   as u8);
+        println!("m = {}, mod = {}, lut = {:?}", m, message_modulus.0, lut);
+        assert_eq!(res as usize, (m)%message_modulus.0 );
     }
 }
