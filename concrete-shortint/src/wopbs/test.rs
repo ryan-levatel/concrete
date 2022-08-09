@@ -205,7 +205,7 @@ fn generate_lut_modulus_not_power_of_two(param: Parameters) {
         while(message_modulus.0 == 0) || (message_modulus.0 == 1) {
             message_modulus = MessageModulus(rng.gen::<usize>() % param.message_modulus.0);
         }
-        message_modulus = MessageModulus(3);
+        message_modulus = MessageModulus(9);
         let m = rng.gen::<usize>() % message_modulus.0;
         let mut ct = cks.encrypt_with_message_modulus_not_power_of_two(m as u64, message_modulus
             .0 as u8);
