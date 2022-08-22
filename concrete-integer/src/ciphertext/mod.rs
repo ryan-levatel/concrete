@@ -15,19 +15,34 @@ pub struct RadixCiphertext {
 
 
 
-pub trait IntegerCiphertext{
+pub trait IntegerCiphertext: Clone{
+    fn from_blocks(blocks: Vec<concrete_shortint::Ciphertext>) -> Self;
     fn blocks(&self) -> &[concrete_shortint::Ciphertext];
+    fn blocks_mut(&mut self) -> &mut [concrete_shortint::Ciphertext];
 }
 
 impl IntegerCiphertext for RadixCiphertext{
     fn blocks(&self) -> &[concrete_shortint::Ciphertext] {
         &self.blocks
     }
+    fn blocks_mut(&mut self) -> &mut [concrete_shortint::Ciphertext] {
+        &mut self.blocks
+    }
+    fn from_blocks(blocks: Vec<concrete_shortint::Ciphertext>) -> Self{
+        Self{blocks}
+    }
 }
 
 impl IntegerCiphertext for CrtCiphertext{
     fn blocks(&self) -> &[concrete_shortint::Ciphertext] {
         &self.blocks
+    }
+    fn blocks_mut(&mut self) -> &mut [concrete_shortint::Ciphertext] {
+        &mut self.blocks
+    }
+    fn from_blocks(blocks: Vec<concrete_shortint::Ciphertext>) -> Self{
+        let moduli = blocks.iter().map(|x| x.message_modulus.0 as u64).collect();
+        Self{blocks, moduli}
     }
 }
 

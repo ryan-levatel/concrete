@@ -231,8 +231,7 @@ pub fn wopbs_16_bits(param: Parameters) {
 }
 
 pub fn wopbs_16_lut_test(param: Parameters) {
-    let nb_block = 4;
-
+    let nb_block = 2;
     //Generate the client key and the server key:
     let (cks, sks) = gen_keys(&param);
     //
@@ -240,21 +239,14 @@ pub fn wopbs_16_lut_test(param: Parameters) {
     let mut wopbs_key = WopbsKey::new_wopbs_key(&cks, &sks);
     let mut rng = rand::thread_rng();
     let mut cpt = 0;
-    let nb_test = 100;
+    let nb_test = 10;
 
     for _ in 0..nb_test {
         println!("-------------------------------------");
 
-        let clear = rng.gen::<usize>() % 8;
+        let clear = rng.gen::<usize>() % 128;
         let mut ct = cks.encrypt_radix(clear as u64, nb_block);
-
-        let delta = 63 - f64::log2((param.message_modulus.0 * param.carry_modulus.0) as f64) as u64;
-
-        let nb_bit_to_extract =
-            f64::log2((param.message_modulus.0 * param.carry_modulus.0) as f64) as usize * nb_block;
-
-
-        let lut = wopbs_key.generate_lut_WIP(&ct,|x|x);
+        let lut = wopbs_key.generate_lut(&ct, |x|x);
         //println!("lut : {:?}", lut[0]);
         let ct_res = wopbs_key.wopbs(&sks, &mut ct, &lut);
 

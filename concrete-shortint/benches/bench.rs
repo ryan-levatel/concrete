@@ -151,7 +151,7 @@ fn bench_wopbs_param_message_8_norm2_5(c: &mut Criterion) {
 
     let clear = rng.gen::<usize>() % param.message_modulus.0;
     let mut ct = cks.encrypt_without_padding(clear as u64);
-    let vec_lut = wopbs_key.generate_lut_without_padding(&ct, |x|x);
+    let vec_lut = wopbs_key.generate_lut_without_padding_crt(&ct, |x|x);
 
 
     let id = format!("Shortint WOPBS: {:?}", param);
@@ -159,7 +159,7 @@ fn bench_wopbs_param_message_8_norm2_5(c: &mut Criterion) {
 
     bench_group.bench_function(&id, |b| {
         b.iter(|| {
-            wopbs_key.circuit_bootstrap_vertical_packing_without_padding(&sks, &mut ct, &vec_lut);
+            wopbs_key.circuit_bootstrap_vertical_packing_without_padding_crt(&sks, &mut ct, &vec_lut);
         })
     });
 

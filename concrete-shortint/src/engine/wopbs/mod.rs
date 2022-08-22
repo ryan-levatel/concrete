@@ -99,6 +99,56 @@ impl ShortintEngine {
 
 
     //TODO: avoid LUT cloning
+    pub(crate) fn circuit_bootstrap_vertical_packing_without_padding(
+        &mut self,
+        wopbs_key: &WopbsKey,
+        sks: &ServerKey,
+        ct_in: &mut Ciphertext,
+        lut: &Vec<u64>,
+    ) -> EngineResult<Vec<Ciphertext>> {
+        let delta = (1_usize << 63) / (sks.message_modulus.0 * sks.carry_modulus.0) * 2;
+        let delta_log = DeltaLog(f64::log2(delta as f64) as usize);
+
+        let (buffers, _engine, _) = self.buffers_for_key(sks);
+
+        let nb_bit_to_extract =
+            f64::log2((sks.message_modulus.0 * sks.carry_modulus.0) as f64) as usize;
+
+        let mut vec_lwe = extract_bit_v0_v1(
+            delta_log,
+            &mut ct_in.ct.0,
+            &sks.key_switching_key.0,
+            &sks.bootstrapping_key.0,
+            &mut buffers.fourier,
+            nb_bit_to_extract,
+        );
+
+        vec_lwe.reverse();
+
+        let vec_ct_out = vertical_packing_cbs_binary_v0(
+            [lut.clone()].to_vec(),
+            &mut buffers.fourier,
+            &wopbs_key.small_bsk.0,
+            &vec_lwe.clone(),
+            wopbs_key.param.cbs_level,
+            wopbs_key.param.cbs_base_log,
+            &wopbs_key.vec_pfks_key,
+        );
+
+        let mut result: Vec<Ciphertext> = vec![];
+        for lwe in vec_ct_out.iter() {
+            let tmp = lwe.clone();
+            result.push(Ciphertext {
+                ct: LweCiphertext64(tmp),
+                degree: Degree(sks.message_modulus.0 - 1),
+                message_modulus: sks.message_modulus,
+                carry_modulus: sks.carry_modulus,
+            })
+        }
+        Ok(result)
+    }
+
+    //TODO: avoid LUT cloning
     pub(crate) fn circuit_bootstrap_vertical_packing(
         &mut self,
         wopbs_key: &WopbsKey,
@@ -148,7 +198,7 @@ impl ShortintEngine {
         Ok(result)
     }
 
-    pub(crate) fn circuit_bootstrap_vertical_packing_without_padding(
+    pub(crate) fn circuit_bootstrap_vertical_packing_without_padding_crt(
         &mut self,
         wopbs_key: &WopbsKey,
         sks: &ServerKey,
@@ -156,13 +206,14 @@ impl ShortintEngine {
         lut: &Vec<u64>,
     ) -> EngineResult<Vec<Ciphertext>> {
         //NO PADDING BIT
-        let delta = (1_usize << 63) / (sks.message_modulus.0 * sks.carry_modulus.0) * 2;
+        let delta = ((1_usize << 63) / (sks.message_modulus.0 * sks.carry_modulus.0)) * 2;
         let delta_log = DeltaLog(f64::log2(delta as f64) as usize);
 
         let (buffers, _, _) = self.buffers_for_key(sks);
 
         let nb_bit_to_extract =
             f64::log2((ct_in.message_modulus.0 * ct_in.carry_modulus.0) as f64).ceil() as usize;
+        let delta_log = DeltaLog(64 - nb_bit_to_extract);
 
 
         // trick ( ct - delta/2 + delta/2^4  )

@@ -47,9 +47,9 @@ impl WopbsKey {
     }
 
 
-    /// Applies the Look-Up Table homomorphically using the WoPBS approach.
+    /// Generates the Look-Up Table homomorphically using the WoPBS approach.
     ///
-    /// #Warning: this assumes one bit of padding.
+    /// # Warning: this assumes one bit of padding.
     ///
     /// # Example
     ///
@@ -73,7 +73,7 @@ impl WopbsKey {
     /// ```
     pub fn generate_lut<F>(&self, ct: &Ciphertext, f: F) -> Vec<u64>
         where
-        F: Fn(u64) -> u64,
+            F: Fn(u64) -> u64,
     {
         // The function is applied only on the message modulus bits
         let basis = ct.message_modulus.0 * ct.carry_modulus.0;
@@ -86,9 +86,47 @@ impl WopbsKey {
         vec_lut
     }
 
-    /// Applies the Look-Up Table homomorphically using the WoPBS approach.
+    /// Generates the Look-Up Table homomorphically using the WoPBS approach.
     ///
-    /// #Warning: this assumes one bit of padding.
+    /// # Warning: this assumes no bit of padding.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use concrete_shortint::ciphertext::Ciphertext;
+    /// use concrete_shortint::gen_keys;
+    /// use concrete_shortint::parameters::parameters_wopbs::WOPBS_PARAM_MESSAGE_2_NORM2_2;
+    /// use concrete_shortint::wopbs::*;
+    /// use rand::Rng;
+    ///
+    /// // Generate the client key and the server key:
+    /// let (mut cks, mut sks) = gen_keys(WOPBS_PARAM_MESSAGE_2_NORM2_2);
+    /// let mut wopbs_key = WopbsKey::new_wopbs_key(&cks, &sks);
+    /// let message_modulus = WOPBS_PARAM_MESSAGE_2_NORM2_2.message_modulus.0 as u64;
+    /// let m = 2;
+    /// let mut ct = cks.encrypt_without_padding(m);
+    /// let lut = wopbs_key.generate_lut(&ct, |x| x*x % message_modulus);
+    /// let ct_res = wopbs_key.circuit_bootstrap_vertical_packing_without_padding(&mut sks, &mut ct, &lut);
+    /// let res = cks.decrypt_without_padding(&ct_res[0]);
+    /// assert_eq!(res, (m*m) % message_modulus);
+    /// ```
+    pub fn generate_lut_without_padding<F>(&self, ct: &Ciphertext, f: F) -> Vec<u64>
+        where
+            F: Fn(u64) -> u64,
+    {
+        // The function is applied only on the message modulus bits
+        let basis = ct.message_modulus.0 * ct.carry_modulus.0;
+        let delta = 64 - f64::log2((basis) as f64).ceil() as u64;
+        let poly_size  = self.small_bsk.polynomial_size().0;
+        let mut vec_lut = vec![0; poly_size];
+        for i in 0..basis{
+            vec_lut[i] = f((i % ct.message_modulus.0) as u64) << delta;
+        }
+        vec_lut
+    }
+
+    /// Generates the Look-Up Table homomorphically using the WoPBS approach.
+    ///
     ///
     /// # Example
     ///
@@ -105,12 +143,12 @@ impl WopbsKey {
     /// let message_modulus = 5;
     /// let m = 2;
     /// let mut ct = cks.encrypt_with_message_modulus_not_power_of_two(m, message_modulus);
-    /// let lut = wopbs_key.generate_lut_without_padding(&ct, |x| x*x % message_modulus as u64);
-    /// let ct_res = wopbs_key.circuit_bootstrap_vertical_packing(&mut sks, &mut ct, &lut);
+    /// let lut = wopbs_key.generate_lut_without_padding_crt(&ct, |x| x*x % message_modulus as u64);
+    /// let ct_res = wopbs_key.circuit_bootstrap_vertical_packing_without_padding_crt(&mut sks, &mut ct, &lut);
     /// let res = cks.decrypt_message_and_carry_not_power_of_two(&ct_res[0], message_modulus);
     /// assert_eq!(res, (m*m) % message_modulus as u64);
     /// ```
-    pub fn generate_lut_without_padding<F>(&self, ct: &Ciphertext, f: F) -> Vec<u64>
+    pub fn generate_lut_without_padding_crt<F>(&self, ct: &Ciphertext, f: F) -> Vec<u64>
         where
             F: Fn(u64) -> u64,
     {
@@ -199,6 +237,43 @@ impl WopbsKey {
         ShortintEngine::with_thread_local_mut(|engine| {
             engine
                 .circuit_bootstrap_vertical_packing_without_padding(self, sks, ct_in, lut)
+                .unwrap()
+        })
+    }
+
+    /// Applies the Look-Up Table homomorphically using the WoPBS approach.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use concrete_shortint::ciphertext::Ciphertext;
+    /// use concrete_shortint::gen_keys;
+    /// use concrete_shortint::parameters::parameters_wopbs::WOPBS_PARAM_MESSAGE_3_NORM2_2;
+    /// use concrete_shortint::wopbs::*;
+    ///
+    /// let (mut cks, mut sks) = gen_keys(WOPBS_PARAM_MESSAGE_3_NORM2_2);
+    /// let mut wopbs_key = WopbsKey::new_wopbs_key(&cks, &sks);
+    /// let msg = 2;
+    /// let modulus = 5;
+    /// let mut ct = cks.encrypt_with_message_modulus_not_power_of_two(msg, modulus);
+    /// let lut = wopbs_key.generate_lut_without_padding_crt(&ct, |x|x);
+    /// let ct_res = wopbs_key.circuit_bootstrap_vertical_packing_without_padding_crt(
+    ///     &mut sks,
+    ///     &mut ct,
+    ///     &lut,
+    /// );
+    /// let res = cks.decrypt_message_and_carry_not_power_of_two(&ct_res[0], modulus);
+    /// assert_eq!(res, msg);
+    /// ```
+    pub fn circuit_bootstrap_vertical_packing_without_padding_crt(
+        &self,
+        sks: &ServerKey,
+        ct_in: &mut Ciphertext,
+        lut: &Vec<u64>,
+    ) -> Vec<Ciphertext> {
+        ShortintEngine::with_thread_local_mut(|engine| {
+            engine
+                .circuit_bootstrap_vertical_packing_without_padding_crt(self, sks, ct_in, lut)
                 .unwrap()
         })
     }

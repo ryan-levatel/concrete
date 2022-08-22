@@ -1,6 +1,7 @@
 use crate::keycache::KEY_CACHE_WOPBS;
 use crate::parameters::parameters_wopbs::*;
 use crate::parameters::parameters_wopbs_message_carry::*;
+use crate::parameters::parameters_wopbs_prime_moduli::*;
 use crate::Parameters;
 use paste::paste;
 use rand::Rng;
@@ -90,6 +91,54 @@ macro_rules! create_parametrized_test{
             WOPBS_PARAM_MESSAGE_7_CARRY_0,
             WOPBS_PARAM_MESSAGE_7_CARRY_1,
             WOPBS_PARAM_MESSAGE_8_CARRY_0,
+            WOPBS_PRIME_PARAM_MESSAGE_2_NORM2_2,
+            WOPBS_PRIME_PARAM_MESSAGE_2_NORM2_3,
+            WOPBS_PRIME_PARAM_MESSAGE_2_NORM2_4,
+            WOPBS_PRIME_PARAM_MESSAGE_2_NORM2_5,
+            WOPBS_PRIME_PARAM_MESSAGE_2_NORM2_6,
+            WOPBS_PRIME_PARAM_MESSAGE_2_NORM2_7,
+            WOPBS_PRIME_PARAM_MESSAGE_2_NORM2_8,
+            WOPBS_PRIME_PARAM_MESSAGE_3_NORM2_2,
+            WOPBS_PRIME_PARAM_MESSAGE_3_NORM2_3,
+            WOPBS_PRIME_PARAM_MESSAGE_3_NORM2_4,
+            WOPBS_PRIME_PARAM_MESSAGE_3_NORM2_5,
+            WOPBS_PRIME_PARAM_MESSAGE_3_NORM2_6,
+            WOPBS_PRIME_PARAM_MESSAGE_3_NORM2_7,
+            WOPBS_PRIME_PARAM_MESSAGE_3_NORM2_8,
+            WOPBS_PRIME_PARAM_MESSAGE_4_NORM2_2,
+            WOPBS_PRIME_PARAM_MESSAGE_4_NORM2_3,
+            WOPBS_PRIME_PARAM_MESSAGE_4_NORM2_4,
+            WOPBS_PRIME_PARAM_MESSAGE_4_NORM2_5,
+            WOPBS_PRIME_PARAM_MESSAGE_4_NORM2_6,
+            WOPBS_PRIME_PARAM_MESSAGE_4_NORM2_7,
+            WOPBS_PRIME_PARAM_MESSAGE_4_NORM2_8,
+            WOPBS_PRIME_PARAM_MESSAGE_5_NORM2_2,
+            WOPBS_PRIME_PARAM_MESSAGE_5_NORM2_3,
+            WOPBS_PRIME_PARAM_MESSAGE_5_NORM2_4,
+            WOPBS_PRIME_PARAM_MESSAGE_5_NORM2_5,
+            WOPBS_PRIME_PARAM_MESSAGE_5_NORM2_6,
+            WOPBS_PRIME_PARAM_MESSAGE_5_NORM2_7,
+            WOPBS_PRIME_PARAM_MESSAGE_5_NORM2_8,
+            WOPBS_PRIME_PARAM_MESSAGE_6_NORM2_2,
+            WOPBS_PRIME_PARAM_MESSAGE_6_NORM2_3,
+            WOPBS_PRIME_PARAM_MESSAGE_6_NORM2_4,
+            WOPBS_PRIME_PARAM_MESSAGE_6_NORM2_5,
+            WOPBS_PRIME_PARAM_MESSAGE_6_NORM2_6,
+            WOPBS_PRIME_PARAM_MESSAGE_6_NORM2_7,
+            WOPBS_PRIME_PARAM_MESSAGE_6_NORM2_8,
+            WOPBS_PRIME_PARAM_MESSAGE_7_NORM2_2,
+            WOPBS_PRIME_PARAM_MESSAGE_7_NORM2_3,
+            WOPBS_PRIME_PARAM_MESSAGE_7_NORM2_4,
+            WOPBS_PRIME_PARAM_MESSAGE_7_NORM2_5,
+            WOPBS_PRIME_PARAM_MESSAGE_7_NORM2_6,
+            WOPBS_PRIME_PARAM_MESSAGE_7_NORM2_7,
+            WOPBS_PRIME_PARAM_MESSAGE_7_NORM2_8,
+            WOPBS_PRIME_PARAM_MESSAGE_8_NORM2_2,
+            WOPBS_PRIME_PARAM_MESSAGE_8_NORM2_3,
+            WOPBS_PRIME_PARAM_MESSAGE_8_NORM2_4,
+            WOPBS_PRIME_PARAM_MESSAGE_8_NORM2_5,
+            WOPBS_PRIME_PARAM_MESSAGE_8_NORM2_6,
+            WOPBS_PRIME_PARAM_MESSAGE_8_NORM2_7,
             //TODO: REMOVE NAWAK
             PARAM_NAWAK
         });
@@ -151,8 +200,7 @@ fn wopbs_v0_norm2(param: Parameters) {
 
         let lut_res = lut.clone();
         let vec_lut = lut;
-        let ct_res =
-            wopbs_key.circuit_bootstrap_vertical_packing_without_padding(sks, &mut ct, &vec_lut);
+        let ct_res = wopbs_key.circuit_bootstrap_vertical_packing_without_padding(sks, &mut ct, &vec_lut);
         let res = cks.decrypt_message_and_carry_without_padding(&ct_res[0]);
         assert_eq!(res, lut_res[clear] / (1 << delta));
     }
@@ -210,10 +258,10 @@ fn generate_lut_modulus_not_power_of_two(param: Parameters) {
         let m = rng.gen::<usize>() % message_modulus.0;
         let mut ct = cks.encrypt_with_message_modulus_not_power_of_two(m as u64, message_modulus
             .0 as u8);
-          let lut = wopbs_key.generate_lut_without_padding(&ct, |x| (x*x) % message_modulus.0 as
+          let lut = wopbs_key.generate_lut_without_padding_crt(&ct, |x| (x*x) % message_modulus.0 as
               u64);
 
-          let ct_res = wopbs_key.circuit_bootstrap_vertical_packing_without_padding(&sks, &mut ct, &lut);
+          let ct_res = wopbs_key.circuit_bootstrap_vertical_packing_without_padding_crt(&sks, &mut ct, &lut);
           let res = cks.decrypt_message_and_carry_not_power_of_two(&ct_res[0], message_modulus.0
                                                                    as u8);
         println!("m = {}, mod = {}, lut = {:?}", m, message_modulus.0, lut);
