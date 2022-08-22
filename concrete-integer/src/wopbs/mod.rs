@@ -102,11 +102,11 @@ impl WopbsKey {
     {
         let message_modulus = self.wopbs_key.param.message_modulus.0;
         let carry_modulus = self.wopbs_key.param.carry_modulus.0;
-        let basis = message_modulus * carry_modulus;
-        let delta = 64 - f64::log2((basis) as f64).ceil() as u64 - 1;
+        let log_basis = f64::log2((message_modulus * carry_modulus) as f64) as u64;
+        let delta = 64 - log_basis - 1;
         let nb_block = ct.blocks().len();
         let poly_size  = self.wopbs_key.param.polynomial_size.0;
-        let mut lut_size = (1 << (nb_block * basis)) as usize;
+        let mut lut_size = (1 << (nb_block * log_basis as usize));
         if lut_size < poly_size {
             lut_size = poly_size;
         }
@@ -115,28 +115,23 @@ impl WopbsKey {
         for index in 0..lut_size{
             let mut value = 0;
             let mut tmp_index = index;
-            for i in 0..nb_block - 1{
-                let tmp = tmp_index % (basis * (i+1));
+            for i in 0..nb_block{
+                let tmp = tmp_index % (1<<(log_basis * (i+1) as u64));
                 tmp_index -= tmp;
-                value += tmp >> (f64::log2(message_modulus as f64) as usize * i);
+                value += tmp >> (f64::log2(carry_modulus as f64) as usize * i);
             }
             for block in 0..nb_block{
                 if block != nb_block - 1 {
-                    vec_lut[block][index] = ((f(value as u64) << (message_modulus * block)) %
-                        message_modulus as u64) << delta
+                    vec_lut[block][index] = ((f(value as u64) >> (f64::log2
+                        (message_modulus as f64) as usize *
+                        block)) % message_modulus as u64) << delta
                 } else {
-                    vec_lut[block][index] = ((f(value as u64) << (message_modulus * block)) %
-                        basis as u64) << delta
+                    vec_lut[block][index] = ((f(value as u64) >> (f64::log2
+                        (message_modulus as f64) as usize  *
+                        block)) % (1<<log_basis) as u64) << delta
                 }
             }
         }
-        /*
-        for i in 0..basis{
-            vec_lut[i] = f((i % ct.message_modulus.0) as u64) << delta;
-        }
-         */
-
-
         vec_lut
     }
 
