@@ -4,7 +4,7 @@
 #![allow(unused)]
 use crate::gen_keys;
 use crate::parameters::*;
-use crate::wopbs::WopbsKeyV0;
+use crate::wopbs::WopbsKey;
 use concrete_shortint::parameters::parameters_wopbs::*;
 use concrete_shortint::parameters::parameters_wopbs_message_carry::*;
 use concrete_shortint::parameters::{Parameters, *};
@@ -105,15 +105,15 @@ macro_rules! create_parametrized_test{
 //create_parametrized_test!(wopbs_v_init);
 //create_parametrized_test!(wopbs_v0_16_bits);
 // create_parametrized_test!(wopbs_v1);
-
+create_parametrized_test!(wopbs_16_lut_test);
 create_parametrized_test!(wopbs_crt_without_padding);
 
-pub fn wopbs_v0(param: Parameters) {
+pub fn wopbs(param: Parameters) {
     //Generate the client key and the server key:
     let (cks, mut sks) = gen_keys(&param);
 
     // //Generate wopbs_v0 key
-    let mut wopbs_key = WopbsKeyV0::new_wopbs_key(&cks, &sks);
+    let mut wopbs_key = WopbsKey::new_wopbs_key(&cks, &sks);
     let mut rng = rand::thread_rng();
     let mut cpt = 0;
     let nb_test = 1;
@@ -139,7 +139,7 @@ pub fn wopbs_v0(param: Parameters) {
         }
         let big_lut = vec![lut_1; 8];
 
-        let ct_res = wopbs_key.circuit_bootstrap_vertical_packing_v0(&sks, &mut ct, &big_lut);
+        let ct_res = wopbs_key.wopbs(&sks, &mut ct, &big_lut);
 
         let res = cks.decrypt_radix(&ct_res);
         if res != 1 {
@@ -153,14 +153,14 @@ pub fn wopbs_v0(param: Parameters) {
     panic!();
 }
 
-pub fn wopbs_v0_16_bits(param: Parameters) {
+pub fn wopbs_16_bits(param: Parameters) {
     let nb_block = 8;
 
     //Generate the client key and the server key:
     let (cks, sks) = gen_keys(&param);
     //
     // //Generate wopbs_v0 key
-    let mut wopbs_key = WopbsKeyV0::new_wopbs_key(&cks, &sks);
+    let mut wopbs_key = WopbsKey::new_wopbs_key(&cks, &sks);
     let mut rng = rand::thread_rng();
     let mut cpt = 0;
     let nb_test = 100;
@@ -197,7 +197,7 @@ pub fn wopbs_v0_16_bits(param: Parameters) {
         let lut_res_2 = lut_2.clone();
 
         let ct_res =
-            wopbs_key.circuit_bootstrap_vertical_packing_v0(&sks, &mut ct, &[lut_1, lut_2]);
+            wopbs_key.wopbs(&sks, &mut ct, &[lut_1, lut_2]);
 
         let shift_clear = ((clear & 100) << 2) + ((clear & 10) << 1) + (clear & 1);
         //println!("nulber of block of the outputi ciphertext = {}", ct_res.ct_vec.len());
@@ -230,6 +230,44 @@ pub fn wopbs_v0_16_bits(param: Parameters) {
     panic!();
 }
 
+pub fn wopbs_16_lut_test(param: Parameters) {
+    let nb_block = 2;
+
+    //Generate the client key and the server key:
+    let (cks, sks) = gen_keys(&param);
+    //
+    // //Generate wopbs_v0 key
+    let mut wopbs_key = WopbsKey::new_wopbs_key(&cks, &sks);
+    let mut rng = rand::thread_rng();
+    let mut cpt = 0;
+    let nb_test = 1;
+
+    for _ in 0..nb_test {
+        println!("-------------------------------------");
+
+        let clear = rng.gen::<usize>() % 8;
+        let mut ct = cks.encrypt_radix(clear as u64, nb_block);
+        let delta = 63 - f64::log2((param.message_modulus.0 * param.carry_modulus.0) as f64) as u64;
+
+        let nb_bit_to_extract =
+            f64::log2((param.message_modulus.0 * param.carry_modulus.0) as f64) as usize * nb_block;
+
+
+        let lut = wopbs_key.generate_lut_WIP(&ct,|x|x);
+        println!("lut : {:?}", lut[0]);
+        let ct_res =
+            wopbs_key.wopbs(&sks, &mut ct, &lut);
+
+        let res = cks.decrypt_radix(&ct_res);
+
+        if res != clear as u64 {
+            cpt += 1;
+        }
+    }
+    println!("failure rate : {:?}", cpt / nb_test);
+    panic!();
+}
+
 pub fn wopbs_crt_without_padding(param: Parameters){
 
     let mut rng = rand::thread_rng();
@@ -242,7 +280,7 @@ pub fn wopbs_crt_without_padding(param: Parameters){
     //Generate the client key and the server key:
     let (mut cks, sks) = gen_keys(&param);
     // let (mut cks, mut sks) = KEY_CACHE.get_from_params(param, VecLength(nb_block));
-    let wopbs_key =  WopbsKeyV0::new_wopbs_key(&cks, &sks);
+    let wopbs_key =  WopbsKey::new_wopbs_key(&cks, &sks);
 
     let mut msg_space = 1;
     for modulus in basis.iter() {

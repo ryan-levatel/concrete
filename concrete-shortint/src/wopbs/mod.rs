@@ -37,8 +37,6 @@ impl WopbsKey {
     /// use concrete_shortint::gen_keys;
     /// use concrete_shortint::parameters::parameters_wopbs_message_carry::WOPBS_PARAM_MESSAGE_1_CARRY_1;
     /// use concrete_shortint::wopbs::*;
-    /// use concrete_shortint::ciphertext::Ciphertext;
-    /// use rand::Rng;
     ///
     /// // Generate the client key and the server key:
     /// let (mut cks, mut sks) = gen_keys(WOPBS_PARAM_MESSAGE_1_CARRY_1);
@@ -47,10 +45,6 @@ impl WopbsKey {
     pub fn new_wopbs_key(cks: &ClientKey, sks: &ServerKey) -> WopbsKey {
         ShortintEngine::with_thread_local_mut(|engine| engine.new_wopbs_key_v0(cks, sks).unwrap())
     }
-
-
-    // create a LUT identity with CRT no power of two decomposition
-    // Careful: message modulus <= polynomial size of small_bsk
 
 
     /// Applies the Look-Up Table homomorphically using the WoPBS approach.

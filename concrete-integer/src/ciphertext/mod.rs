@@ -13,9 +13,20 @@ pub struct RadixCiphertext {
     pub(crate) blocks: Vec<concrete_shortint::Ciphertext>,
 }
 
-impl RadixCiphertext {
-    /// Returns the slice of blocks that the ciphertext is composed of.
-    pub fn blocks(&self) -> &[concrete_shortint::Ciphertext] {
+
+
+pub trait IntegerCiphertext{
+    fn blocks(&self) -> &[concrete_shortint::Ciphertext];
+}
+
+impl IntegerCiphertext for RadixCiphertext{
+    fn blocks(&self) -> &[concrete_shortint::Ciphertext] {
+        &self.blocks
+    }
+}
+
+impl IntegerCiphertext for CrtCiphertext{
+    fn blocks(&self) -> &[concrete_shortint::Ciphertext] {
         &self.blocks
     }
 }

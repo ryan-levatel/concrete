@@ -158,14 +158,12 @@ impl ShortintEngine {
         //NO PADDING BIT
         let delta = (1_usize << 63) / (sks.message_modulus.0 * sks.carry_modulus.0) * 2;
         let delta_log = DeltaLog(f64::log2(delta as f64) as usize);
-        //println!("delta log = {}", delta_log.0);
 
         let (buffers, _, _) = self.buffers_for_key(sks);
 
         let nb_bit_to_extract =
             f64::log2((ct_in.message_modulus.0 * ct_in.carry_modulus.0) as f64).ceil() as usize;
 
-        println!("Number of bit to extract : {}", nb_bit_to_extract);
 
         // trick ( ct - delta/2 + delta/2^4  )
         let lwe_size = ct_in.ct.0.lwe_size().0;
@@ -174,7 +172,6 @@ impl ShortintEngine {
             nb_bit_to_extract - 5));
         let tmp = LweCiphertext::from_container(cont);
         ct_in.ct.0.update_with_sub(&tmp);
-        println!("lwe ize = {}, ct_in_size = {}", lwe_size, ct_in.ct.0.lwe_size().0);
 
 
 
