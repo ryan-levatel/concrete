@@ -7,7 +7,7 @@ pub use concrete_core::prelude::{
 };
 use crate::parameters::parameters_wopbs_prime_moduli::*;
 
-pub const ALL_PARAMETER_VEC_WOPBS: [Parameters; 115] = [
+pub const ALL_PARAMETER_VEC_WOPBS: [Parameters; 116] = [
     WOPBS_PARAM_MESSAGE_1_CARRY_0,
     WOPBS_PARAM_MESSAGE_1_CARRY_1,
     WOPBS_PARAM_MESSAGE_1_CARRY_2,
@@ -122,7 +122,8 @@ pub const ALL_PARAMETER_VEC_WOPBS: [Parameters; 115] = [
     WOPBS_PRIME_PARAM_MESSAGE_8_NORM2_4,
     WOPBS_PRIME_PARAM_MESSAGE_8_NORM2_5,
     WOPBS_PRIME_PARAM_MESSAGE_8_NORM2_6,
-    WOPBS_PRIME_PARAM_MESSAGE_8_NORM2_7
+    WOPBS_PRIME_PARAM_MESSAGE_8_NORM2_7,
+    WOPBS_PRIME_PARAM_MESSAGE_8_NORM2_8
 ];
 
 pub const WOPBS_PARAM_MESSAGE_1_CARRY_5: Parameters = Parameters {

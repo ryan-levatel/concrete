@@ -43,7 +43,7 @@ impl WopbsKey {
     /// let mut wopbs_key = WopbsKey::new_wopbs_key(&cks, &sks);
     /// ```
     pub fn new_wopbs_key(cks: &ClientKey, sks: &ServerKey) -> WopbsKey {
-        ShortintEngine::with_thread_local_mut(|engine| engine.new_wopbs_key_v0(cks, sks).unwrap())
+        ShortintEngine::with_thread_local_mut(|engine| engine.new_wopbs_key(cks, sks).unwrap())
     }
 
 
@@ -67,7 +67,7 @@ impl WopbsKey {
     /// let m = 2;
     /// let mut ct = cks.encrypt(m);
     /// let lut = wopbs_key.generate_lut(&ct, |x| x*x % message_modulus);
-    /// let ct_res = wopbs_key.circuit_bootstrap_vertical_packing(&mut sks, &mut ct, &lut);
+    /// let ct_res = wopbs_key.programmable_bootstrapping(&mut sks, &mut ct, &lut);
     /// let res = cks.decrypt(&ct_res[0]);
     /// assert_eq!(res, (m*m) % message_modulus);
     /// ```
@@ -106,7 +106,7 @@ impl WopbsKey {
     /// let m = 2;
     /// let mut ct = cks.encrypt_without_padding(m);
     /// let lut = wopbs_key.generate_lut(&ct, |x| x*x % message_modulus);
-    /// let ct_res = wopbs_key.circuit_bootstrap_vertical_packing_without_padding(&mut sks, &mut ct, &lut);
+    /// let ct_res = wopbs_key.programmable_bootstrapping_without_padding(&mut sks, &mut ct, &lut);
     /// let res = cks.decrypt_without_padding(&ct_res[0]);
     /// assert_eq!(res, (m*m) % message_modulus);
     /// ```
@@ -144,7 +144,7 @@ impl WopbsKey {
     /// let m = 2;
     /// let mut ct = cks.encrypt_with_message_modulus_not_power_of_two(m, message_modulus);
     /// let lut = wopbs_key.generate_lut_without_padding_crt(&ct, |x| x*x % message_modulus as u64);
-    /// let ct_res = wopbs_key.circuit_bootstrap_vertical_packing_without_padding_crt(&mut sks, &mut ct, &lut);
+    /// let ct_res = wopbs_key.programmable_bootstrapping_without_padding_crt(&mut sks, &mut ct, &lut);
     /// let res = cks.decrypt_message_and_carry_not_power_of_two(&ct_res[0], message_modulus);
     /// assert_eq!(res, (m*m) % message_modulus as u64);
     /// ```
@@ -187,11 +187,11 @@ impl WopbsKey {
     /// let message_modulus = WOPBS_PARAM_MESSAGE_2_NORM2_2.message_modulus.0;
     /// let mut ct = cks.encrypt(rng.gen::<u64>() % message_modulus);
     /// let lut = vec![(1_u64 << 61); wopbs_key.param.polynomial_size.0];
-    /// let ct_res = wopbs_key.circuit_bootstrap_vertical_packing(&mut sks, &mut ct, &lut);
+    /// let ct_res = wopbs_key.programmable_bootstrapping(&mut sks, &mut ct, &lut);
     /// let res = cks.decrypt_message_and_carry(&ct_res[0]);
     /// assert_eq!(res, 1);
     /// ```
-    pub fn circuit_bootstrap_vertical_packing(
+    pub fn programmable_bootstrapping(
         &self,
         sks: &ServerKey,
         ct_in: &mut Ciphertext,
@@ -199,7 +199,7 @@ impl WopbsKey {
     ) -> Vec<Ciphertext> {
         ShortintEngine::with_thread_local_mut(|engine| {
             engine
-                .circuit_bootstrap_vertical_packing(self, sks, ct_in, &lut)
+                .programmable_bootstrapping(self, sks, ct_in, &lut)
                 .unwrap()
         })
     }
@@ -220,7 +220,7 @@ impl WopbsKey {
     /// let mut rng = rand::thread_rng();
     /// let mut ct = cks.encrypt_without_padding(rng.gen::<u64>() % 2);
     /// let lut = vec![(1_u64 << 63); wopbs_key.param.polynomial_size.0];
-    /// let ct_res = wopbs_key.circuit_bootstrap_vertical_packing_without_padding(
+    /// let ct_res = wopbs_key.programmable_bootstrapping_without_padding(
     ///     &mut sks,
     ///     &mut ct,
     ///     &lut,
@@ -228,7 +228,7 @@ impl WopbsKey {
     /// let res = cks.decrypt_message_and_carry_without_padding(&ct_res[0]);
     /// assert_eq!(res, 1);
     /// ```
-    pub fn circuit_bootstrap_vertical_packing_without_padding(
+    pub fn programmable_bootstrapping_without_padding(
         &self,
         sks: &ServerKey,
         ct_in: &mut Ciphertext,
@@ -236,7 +236,7 @@ impl WopbsKey {
     ) -> Vec<Ciphertext> {
         ShortintEngine::with_thread_local_mut(|engine| {
             engine
-                .circuit_bootstrap_vertical_packing_without_padding(self, sks, ct_in, lut)
+                .programmable_bootstrapping_without_padding(self, sks, ct_in, lut)
                 .unwrap()
         })
     }
@@ -257,7 +257,7 @@ impl WopbsKey {
     /// let modulus = 5;
     /// let mut ct = cks.encrypt_with_message_modulus_not_power_of_two(msg, modulus);
     /// let lut = wopbs_key.generate_lut_without_padding_crt(&ct, |x|x);
-    /// let ct_res = wopbs_key.circuit_bootstrap_vertical_packing_without_padding_crt(
+    /// let ct_res = wopbs_key.programmable_bootstrapping_without_padding_crt(
     ///     &mut sks,
     ///     &mut ct,
     ///     &lut,
@@ -265,7 +265,7 @@ impl WopbsKey {
     /// let res = cks.decrypt_message_and_carry_not_power_of_two(&ct_res[0], modulus);
     /// assert_eq!(res, msg);
     /// ```
-    pub fn circuit_bootstrap_vertical_packing_without_padding_crt(
+    pub fn programmable_bootstrapping_without_padding_crt(
         &self,
         sks: &ServerKey,
         ct_in: &mut Ciphertext,
@@ -273,7 +273,7 @@ impl WopbsKey {
     ) -> Vec<Ciphertext> {
         ShortintEngine::with_thread_local_mut(|engine| {
             engine
-                .circuit_bootstrap_vertical_packing_without_padding_crt(self, sks, ct_in, lut)
+                .programmable_bootstrapping_without_padding_crt(self, sks, ct_in, lut)
                 .unwrap()
         })
     }

@@ -139,6 +139,7 @@ macro_rules! create_parametrized_test{
             WOPBS_PRIME_PARAM_MESSAGE_8_NORM2_5,
             WOPBS_PRIME_PARAM_MESSAGE_8_NORM2_6,
             WOPBS_PRIME_PARAM_MESSAGE_8_NORM2_7,
+            WOPBS_PRIME_PARAM_MESSAGE_8_NORM2_8,
             //TODO: REMOVE NAWAK
             PARAM_NAWAK
         });
@@ -172,7 +173,7 @@ fn wopbs_v0(param: Parameters) {
         }
         let lut_res = lut.clone();
 
-        let ct_res = wopbs_key.circuit_bootstrap_vertical_packing(&sks, &mut ct, &lut);
+        let ct_res = wopbs_key.programmable_bootstrapping(&sks, &mut ct, &lut);
         let res = cks.decrypt_message_and_carry(&ct_res[0]);
         assert_eq!(res, lut_res[clear] / (1 << delta));
     }
@@ -200,7 +201,7 @@ fn wopbs_v0_norm2(param: Parameters) {
 
         let lut_res = lut.clone();
         let vec_lut = lut;
-        let ct_res = wopbs_key.circuit_bootstrap_vertical_packing_without_padding(sks, &mut ct, &vec_lut);
+        let ct_res = wopbs_key.programmable_bootstrapping_without_padding_crt(&sks, &mut ct, &vec_lut);
         let res = cks.decrypt_message_and_carry_without_padding(&ct_res[0]);
         assert_eq!(res, lut_res[clear] / (1 << delta));
     }
@@ -218,7 +219,7 @@ fn generate_lut(param: Parameters) {
         let mut ct = cks.encrypt(m as u64);
 
         let lut = wopbs_key.generate_lut(&ct, |x| (x * x) % message_modulus as u64);
-        let ct_res = wopbs_key.circuit_bootstrap_vertical_packing(&sks, &mut ct, &lut);
+        let ct_res = wopbs_key.programmable_bootstrapping(&sks, &mut ct, &lut);
 
         let res = cks.decrypt(&ct_res[0]);
         assert_eq!(res, ((m*m)%message_modulus) as u64);
@@ -237,7 +238,7 @@ fn generate_lut_modulus(param: Parameters) {
         let mut ct = cks.encrypt_with_message_modulus(m as u64,  message_modulus);
 
         let lut = wopbs_key.generate_lut(&ct, |x| (x * x) % message_modulus.0 as u64);
-        let ct_res = wopbs_key.circuit_bootstrap_vertical_packing(&sks, &mut ct, &lut);
+        let ct_res = wopbs_key.programmable_bootstrapping(&sks, &mut ct, &lut);
 
         let res = cks.decrypt(&ct_res[0]);
         assert_eq!(res as usize, (m*m)%message_modulus.0);
@@ -261,7 +262,7 @@ fn generate_lut_modulus_not_power_of_two(param: Parameters) {
           let lut = wopbs_key.generate_lut_without_padding_crt(&ct, |x| (x*x) % message_modulus.0 as
               u64);
 
-          let ct_res = wopbs_key.circuit_bootstrap_vertical_packing_without_padding_crt(&sks, &mut ct, &lut);
+          let ct_res = wopbs_key.programmable_bootstrapping_without_padding_crt(&sks, &mut ct, &lut);
           let res = cks.decrypt_message_and_carry_not_power_of_two(&ct_res[0], message_modulus.0
                                                                    as u8);
         println!("m = {}, mod = {}, lut = {:?}", m, message_modulus.0, lut);

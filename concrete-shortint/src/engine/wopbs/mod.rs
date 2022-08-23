@@ -17,7 +17,7 @@ use concrete_core::prelude::{
 
 impl ShortintEngine {
     //Fills with functional packing key switch keys.
-    pub(crate) fn new_wopbs_key_v0(
+    pub(crate) fn new_wopbs_key(
         &mut self,
         cks: &ClientKey,
         sks: &ServerKey,
@@ -98,8 +98,7 @@ impl ShortintEngine {
     }
 
 
-    //TODO: avoid LUT cloning
-    pub(crate) fn circuit_bootstrap_vertical_packing_without_padding(
+    pub(crate) fn programmable_bootstrapping_without_padding(
         &mut self,
         wopbs_key: &WopbsKey,
         sks: &ServerKey,
@@ -148,8 +147,7 @@ impl ShortintEngine {
         Ok(result)
     }
 
-    //TODO: avoid LUT cloning
-    pub(crate) fn circuit_bootstrap_vertical_packing(
+    pub(crate) fn programmable_bootstrapping(
         &mut self,
         wopbs_key: &WopbsKey,
         sks: &ServerKey,
@@ -198,17 +196,13 @@ impl ShortintEngine {
         Ok(result)
     }
 
-    pub(crate) fn circuit_bootstrap_vertical_packing_without_padding_crt(
+    pub(crate) fn programmable_bootstrapping_without_padding_crt(
         &mut self,
         wopbs_key: &WopbsKey,
         sks: &ServerKey,
         ct_in: &mut Ciphertext,
         lut: &Vec<u64>,
     ) -> EngineResult<Vec<Ciphertext>> {
-        //NO PADDING BIT
-        let delta = ((1_usize << 63) / (sks.message_modulus.0 * sks.carry_modulus.0)) * 2;
-        let delta_log = DeltaLog(f64::log2(delta as f64) as usize);
-
         let (buffers, _, _) = self.buffers_for_key(sks);
 
         let nb_bit_to_extract =
@@ -223,8 +217,6 @@ impl ShortintEngine {
             nb_bit_to_extract - 5));
         let tmp = LweCiphertext::from_container(cont);
         ct_in.ct.0.update_with_sub(&tmp);
-
-
 
         let mut vec_lwe = extract_bit_v0_v1(
             delta_log,

@@ -159,7 +159,7 @@ fn bench_wopbs_param_message_8_norm2_5(c: &mut Criterion) {
 
     bench_group.bench_function(&id, |b| {
         b.iter(|| {
-            wopbs_key.circuit_bootstrap_vertical_packing_without_padding_crt(&sks, &mut ct, &vec_lut);
+            wopbs_key.programmable_bootstrapping_without_padding_crt(&sks, &mut ct, &vec_lut);
         })
     });
 
