@@ -25,7 +25,7 @@ impl TreepbsKey {
     }
 
     pub fn mul_lsb_treepbs(
-        &mut self,
+        &self,
         sks: &ServerKey,
         ct_left: &Ciphertext,
         ct_right: &Ciphertext,
@@ -38,12 +38,12 @@ impl TreepbsKey {
     }
 
     pub fn bivaluepbs<F1, F2>(
-        &mut self,
+        &self,
         sks: &ServerKey,
         ct_in: &Ciphertext,
         f_1: F1,
         f_2: F2,
-    ) -> Vec<Ciphertext>
+    ) -> (Ciphertext, Ciphertext)
     where
         F1: Fn(u64) -> u64,
         F2: Fn(u64) -> u64,
@@ -54,7 +54,7 @@ impl TreepbsKey {
     }
 
     pub fn mul_treepbs_with_multivalue(
-        &mut self,
+        &self,
         sks: &ServerKey,
         ct_left: &Ciphertext,
         ct_right: &Ciphertext,
@@ -67,10 +67,10 @@ impl TreepbsKey {
     }
 
     pub fn message_and_carry_extract(
-        &mut self,
+        &self,
         sks: &ServerKey,
         ct_in: &Ciphertext,
-    ) -> Vec<Ciphertext> {
+    ) -> (Ciphertext, Ciphertext) {
         ShortintEngine::with_thread_local_mut(|engine| {
             engine.message_and_carry_extract(sks, ct_in).unwrap()
         })
