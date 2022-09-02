@@ -245,6 +245,24 @@ impl ServerKey {
         result
     }
 
+    pub fn smart_multivalue_sub(&self, ctxt_left: &mut Ciphertext, ctxt_right: &mut Ciphertext) -> Ciphertext {
+        // If the ciphertext cannot be negated without exceeding the capacity of a ciphertext
+        if !self.is_neg_possible(ctxt_right) {
+            self.multivalue_full_propagate(ctxt_right);
+        }
+
+        // If the ciphertext cannot be added together without exceeding the capacity of a ciphertext
+        if !self.is_sub_possible(ctxt_left, ctxt_right) {
+            self.multivalue_full_propagate(ctxt_left);
+            self.multivalue_full_propagate(ctxt_right);
+        }
+
+        let mut result = ctxt_left.clone();
+        self.unchecked_sub_assign(&mut result, ctxt_right);
+
+        result
+    }
+
     /// Computes homomorphically the subtraction between ct_left and ct_right.
     ///
     /// # Example
@@ -281,6 +299,21 @@ impl ServerKey {
         if !self.is_sub_possible(ctxt_left, ctxt_right) {
             self.full_propagate(ctxt_left);
             self.full_propagate(ctxt_right);
+        }
+
+        self.unchecked_sub_assign(ctxt_left, ctxt_right);
+    }
+
+    pub fn smart_multivalue_sub_assign(&self, ctxt_left: &mut Ciphertext, ctxt_right: &mut Ciphertext) {
+        // If the ciphertext cannot be negated without exceeding the capacity of a ciphertext
+        if !self.is_neg_possible(ctxt_right) {
+            self.multivalue_full_propagate(ctxt_right);
+        }
+
+        // If the ciphertext cannot be added together without exceeding the capacity of a ciphertext
+        if !self.is_sub_possible(ctxt_left, ctxt_right) {
+            self.multivalue_full_propagate(ctxt_left);
+            self.multivalue_full_propagate(ctxt_right);
         }
 
         self.unchecked_sub_assign(ctxt_left, ctxt_right);

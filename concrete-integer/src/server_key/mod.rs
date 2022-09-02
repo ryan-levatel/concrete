@@ -196,4 +196,75 @@ impl ServerKey {
             self.propagate(ctxt, i);
         }
     }
+
+    /// Propagate the carry of the 'index' block to the next one.
+    ///
+    /// # Example
+    ///
+    ///```rust
+    /// use concrete_integer::gen_keys;
+    /// use concrete_shortint::parameters::PARAM_MESSAGE_2_CARRY_2;
+    ///
+    /// let size = 4;
+    ///
+    /// // Generate the client key and the server key:
+    /// let (cks, sks) = gen_keys(&PARAM_MESSAGE_2_CARRY_2, size);
+    ///
+    /// let msg = 7;
+    ///
+    /// let ct1 = cks.encrypt(msg);
+    /// let ct2 = cks.encrypt(msg);
+    ///
+    /// // Compute homomorphically an addition:
+    /// let mut ct_res = sks.unchecked_add(&ct1, &ct2);
+    /// sks.multivalue_propagate(&mut ct_res, 0);
+    ///
+    /// // Decrypt one block:
+    /// let res = cks.decrypt_one_block(&ct_res.blocks()[1]);
+    /// assert_eq!(3, res);
+    /// ```
+    pub fn multivalue_propagate(&self, ctxt: &mut Ciphertext, index: usize) {
+        let (msg, carry) = self.key.message_and_carry_extract(&ctxt.ct_vec[index]);
+
+        ctxt.ct_vec[index] = msg;
+
+        //add the carry to the next block
+        if index < ctxt.ct_vec.len() - 1 {
+            self.key
+                .unchecked_add_assign(&mut ctxt.ct_vec[index + 1], &carry);
+        }
+    }
+
+    /// Propagate all the carries.
+    ///
+    /// # Example
+    ///
+    ///```rust
+    /// use concrete_integer::gen_keys;
+    /// use concrete_shortint::parameters::PARAM_MESSAGE_2_CARRY_2;
+    ///
+    /// let size = 4;
+    ///
+    /// // Generate the client key and the server key:
+    /// let (cks, sks) = gen_keys(&PARAM_MESSAGE_2_CARRY_2, size);
+    ///
+    /// let msg = 10;
+    ///
+    /// let mut ct1 = cks.encrypt(msg);
+    /// let mut ct2 = cks.encrypt(msg);
+    ///
+    /// // Compute homomorphically an addition:
+    /// let mut ct_res = sks.unchecked_add(&mut ct1, &mut ct2);
+    /// sks.multivalue_full_propagate(&mut ct_res);
+    ///
+    /// // Decrypt:
+    /// let res = cks.decrypt(&ct_res);
+    /// assert_eq!(msg + msg, res);
+    /// ```
+    pub fn multivalue_full_propagate(&self, ctxt: &mut Ciphertext) {
+        let len = ctxt.ct_vec.len();
+        for i in 0..len {
+            self.multivalue_propagate(ctxt, i);
+        }
+    }
 }

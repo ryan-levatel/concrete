@@ -14,9 +14,8 @@ impl ShortintEngine {
         Ok(result)
     }
 
-    pub(crate) fn unchecked_mul_lsb_assign(
+    pub(crate) fn concatenate_ciphertexts(
         &mut self,
-        server_key: &ServerKey,
         ct_left: &mut Ciphertext,
         ct_right: &Ciphertext,
     ) -> EngineResult<()> {
@@ -27,6 +26,19 @@ impl ShortintEngine {
 
         //message 2 is placed in the message bits
         self.unchecked_add_assign(ct_left, ct_right)?;
+
+        Ok(())
+    }
+
+    pub(crate) fn unchecked_mul_lsb_assign(
+        &mut self,
+        server_key: &ServerKey,
+        ct_left: &mut Ciphertext,
+        ct_right: &Ciphertext,
+    ) -> EngineResult<()> {
+        let modulus = (ct_right.degree.0 + 1) as u64;
+
+        self.concatenate_ciphertexts(ct_left, ct_right)?;
 
         //Modulus of the msg in the msg bits
         let res_modulus = ct_left.message_modulus.0 as u64;
@@ -62,11 +74,7 @@ impl ShortintEngine {
         let modulus = (ct_right.degree.0 + 1) as u64;
         let deg = (ct_left.degree.0 * ct_right.degree.0) / ct_right.message_modulus.0;
 
-        // Message 1 is shifted to the carry bits
-        self.unchecked_scalar_mul_assign(ct_left, modulus as u8)?;
-
-        // Message 2 is placed in the message bits
-        self.unchecked_add_assign(ct_left, ct_right)?;
+        self.concatenate_ciphertexts(ct_left, ct_right)?;
 
         // Modulus of the msg in the msg bits
         let res_modulus = server_key.message_modulus.0 as u64;

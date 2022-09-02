@@ -105,16 +105,16 @@ fn shortint_message_and_carry_extract(param: Parameters) {
         let ctxt_zero = cks.encrypt(clear_0);
 
         // multiply together the two ciphertexts
-        let vec_res = treepbs_key.message_and_carry_extract(sks, &ctxt_zero);
+        let vec_res = sks.message_and_carry_extract(&ctxt_zero);
 
         // decryption
-        let res_1 = cks.decrypt(&vec_res[0]);
+        let res_1 = cks.decrypt(&vec_res.0);
 
         // assert
         assert_eq!(clear_0 % base, res_1);
 
         // decryption
-        let res_2 = cks.decrypt(&vec_res[1]);
+        let res_2 = cks.decrypt(&vec_res.1);
 
         // assert
         assert_eq!(clear_0 / base, res_2);

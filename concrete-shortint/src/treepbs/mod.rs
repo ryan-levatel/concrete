@@ -37,22 +37,6 @@ impl TreepbsKey {
         })
     }
 
-    pub fn bivaluepbs<F1, F2>(
-        &self,
-        sks: &ServerKey,
-        ct_in: &Ciphertext,
-        f_1: F1,
-        f_2: F2,
-    ) -> (Ciphertext, Ciphertext)
-    where
-        F1: Fn(u64) -> u64,
-        F2: Fn(u64) -> u64,
-    {
-        ShortintEngine::with_thread_local_mut(|engine| {
-            engine.bivaluepbs(sks, ct_in, f_1, f_2).unwrap()
-        })
-    }
-
     pub fn mul_treepbs_with_multivalue(
         &self,
         sks: &ServerKey,
@@ -63,16 +47,6 @@ impl TreepbsKey {
             engine
                 .mul_treepbs_with_multivalue(self, sks, ct_left, ct_right)
                 .unwrap()
-        })
-    }
-
-    pub fn message_and_carry_extract(
-        &self,
-        sks: &ServerKey,
-        ct_in: &Ciphertext,
-    ) -> (Ciphertext, Ciphertext) {
-        ShortintEngine::with_thread_local_mut(|engine| {
-            engine.message_and_carry_extract(sks, ct_in).unwrap()
         })
     }
 }

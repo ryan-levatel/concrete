@@ -6,6 +6,13 @@ use crate::server_key::CheckError::CarryFull;
 use crate::Ciphertext;
 
 impl ServerKey {
+
+    pub fn concatenate_ciphertexts(&self, ct_left: &mut Ciphertext, ct_right: &Ciphertext) {
+        ShortintEngine::with_thread_local_mut(|engine| {
+            engine.concatenate_ciphertexts(ct_left, ct_right).unwrap()
+        })
+    }
+
     /// Multiplies two ciphertexts together without checks.
     ///
     /// Returns the "least significant bits" of the multiplication, i.e., the result modulus the

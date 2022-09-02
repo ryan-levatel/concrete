@@ -449,4 +449,81 @@ impl ServerKey {
             engine.create_trivial_assign(self, ct, value).unwrap()
         })
     }
+
+    /// Constructs the accumulator given a function as input.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use concrete_shortint::gen_keys;
+    /// use concrete_shortint::parameters::PARAM_MESSAGE_2_CARRY_2;
+    ///
+    /// // Generate the client key and the server key:
+    /// let (cks, sks) = gen_keys(PARAM_MESSAGE_2_CARRY_2);
+    ///
+    /// let msg = 3;
+    ///
+    /// let ct = cks.encrypt(msg);
+    ///
+    /// let f_1 = |x| x ^ 2 % 4;
+    /// let f_2 = |x| (x+1) % 4;
+    ///
+    /// let (ct_res_1, ct_res_2) = sks.bivaluepbs(&ct, f_1, f_2);
+    ///
+    /// let dec_1 = cks.decrypt(&ct_res_1);
+    /// let dec_2 = cks.decrypt(&ct_res_2);
+    ///
+    /// // 3^2 mod 4 = 1
+    /// assert_eq!(dec_1, f_1(msg));
+    /// assert_eq!(dec_2, f_2(msg));
+    /// ```
+    pub fn bivaluepbs<F1, F2>(
+        &self,
+        ct_in: &Ciphertext,
+        f_1: F1,
+        f_2: F2,
+    ) -> (Ciphertext, Ciphertext)
+        where
+            F1: Fn(u64) -> u64,
+            F2: Fn(u64) -> u64,
+    {
+        ShortintEngine::with_thread_local_mut(|engine| {
+            engine.bivaluepbs(self, ct_in, f_1, f_2).unwrap()
+        })
+    }
+
+    /// Constructs the accumulator given a function as input.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use concrete_shortint::gen_keys;
+    /// use concrete_shortint::parameters::PARAM_MESSAGE_2_CARRY_2;
+    ///
+    /// // Generate the client key and the server key:
+    /// let (cks, sks) = gen_keys(PARAM_MESSAGE_2_CARRY_2);
+    ///
+    /// let msg = 3;
+    ///
+    /// let mut ct = cks.encrypt(msg);
+    /// sks.unchecked_scalar_add_assign(&mut ct, 3);
+    ///
+    /// let (ct_res_1, ct_res_2) = sks.message_and_carry_extract(&ct);
+    ///
+    /// let dec_1 = cks.decrypt(&ct_res_1);
+    /// let dec_2 = cks.decrypt(&ct_res_2);
+    ///
+    /// // 3^2 mod 4 = 1
+    /// assert_eq!(dec_1, 2);
+    /// assert_eq!(dec_2, 1);
+    /// ```
+    pub fn message_and_carry_extract(
+        &self,
+        ct_in: &Ciphertext,
+    ) -> (Ciphertext, Ciphertext)
+    {
+        ShortintEngine::with_thread_local_mut(|engine| {
+            engine.message_and_carry_extract(self, ct_in).unwrap()
+        })
+    }
 }

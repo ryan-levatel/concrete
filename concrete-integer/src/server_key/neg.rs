@@ -212,4 +212,11 @@ impl ServerKey {
         }
         self.unchecked_neg(ctxt)
     }
+
+    pub fn smart_multivalue_neg(&self, ctxt: &mut Ciphertext) -> Ciphertext {
+        if !self.is_neg_possible(ctxt) {
+            self.multivalue_full_propagate(ctxt);
+        }
+        self.unchecked_neg(ctxt)
+    }
 }

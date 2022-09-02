@@ -98,6 +98,58 @@ fn smart_neg(c: &mut Criterion) {
     bench_group.finish()
 }
 
+fn smart_multivalue_neg(c: &mut Criterion) {
+    let mut bench_group = c.benchmark_group("smart_multivalue_neg");
+
+    for (param_name, param) in SERVER_KEY_BENCH_PARAMS {
+        let (cks, sks) = KEY_CACHE.get_from_params(param.block_parameters, param.num_block);
+
+        let mut rng = rand::thread_rng();
+
+        let modulus =
+            1_u64 << (param.block_parameters.message_modulus.0 * param.num_block.0) as u64;
+
+        let clear_0 = rng.gen::<u64>() % modulus;
+
+        let mut ct = cks.encrypt(clear_0);
+
+        let bench_id = param_name;
+        bench_group.bench_function(bench_id, |b| {
+            b.iter(|| {
+                sks.smart_multivalue_neg(&mut ct);
+            })
+        });
+    }
+
+    bench_group.finish()
+}
+
+fn propagate(c: &mut Criterion) {
+    let mut bench_group = c.benchmark_group("propagate");
+
+    for (param_name, param) in SERVER_KEY_BENCH_PARAMS {
+        let (cks, sks) = KEY_CACHE.get_from_params(param.block_parameters, param.num_block);
+
+        let mut rng = rand::thread_rng();
+
+        let modulus =
+            1_u64 << (param.block_parameters.message_modulus.0 * param.num_block.0) as u64;
+
+        let clear_0 = rng.gen::<u64>() % modulus;
+
+        let mut ct = cks.encrypt(clear_0);
+
+        let bench_id = param_name;
+        bench_group.bench_function(bench_id, |b| {
+            b.iter(|| {
+                sks.propagate(&mut ct,0);
+            })
+        });
+    }
+
+    bench_group.finish()
+}
+
 fn full_propagate(c: &mut Criterion) {
     let mut bench_group = c.benchmark_group("full_propagate");
 
@@ -117,6 +169,58 @@ fn full_propagate(c: &mut Criterion) {
         bench_group.bench_function(bench_id, |b| {
             b.iter(|| {
                 sks.full_propagate(&mut ct);
+            })
+        });
+    }
+
+    bench_group.finish()
+}
+
+fn multivalue_propagate(c: &mut Criterion) {
+    let mut bench_group = c.benchmark_group("multivalue_propagate");
+
+    for (param_name, param) in SERVER_KEY_BENCH_PARAMS {
+        let (cks, sks) = KEY_CACHE.get_from_params(param.block_parameters, param.num_block);
+
+        let mut rng = rand::thread_rng();
+
+        let modulus =
+            1_u64 << (param.block_parameters.message_modulus.0 * param.num_block.0) as u64;
+
+        let clear_0 = rng.gen::<u64>() % modulus;
+
+        let mut ct = cks.encrypt(clear_0);
+
+        let bench_id = param_name;
+        bench_group.bench_function(bench_id, |b| {
+            b.iter(|| {
+                sks.multivalue_propagate(&mut ct,0);
+            })
+        });
+    }
+
+    bench_group.finish()
+}
+
+fn multivalue_full_propagate(c: &mut Criterion) {
+    let mut bench_group = c.benchmark_group("multivalue_full_propagate");
+
+    for (param_name, param) in SERVER_KEY_BENCH_PARAMS {
+        let (cks, sks) = KEY_CACHE.get_from_params(param.block_parameters, param.num_block);
+
+        let mut rng = rand::thread_rng();
+
+        let modulus =
+            1_u64 << (param.block_parameters.message_modulus.0 * param.num_block.0) as u64;
+
+        let clear_0 = rng.gen::<u64>() % modulus;
+
+        let mut ct = cks.encrypt(clear_0);
+
+        let bench_id = param_name;
+        bench_group.bench_function(bench_id, |b| {
+            b.iter(|| {
+                sks.multivalue_full_propagate(&mut ct);
             })
         });
     }
@@ -212,8 +316,11 @@ macro_rules! define_server_key_bench_scalar_fn (
 );
 
 define_server_key_bench_fn!(smart_add);
+define_server_key_bench_fn!(smart_multivalue_add);
 define_server_key_bench_fn!(smart_sub);
+define_server_key_bench_fn!(smart_multivalue_sub);
 define_server_key_bench_fn!(smart_mul);
+define_server_key_bench_fn!(smart_multivalue_mul);
 define_server_key_bench_fn!(smart_bitand);
 define_server_key_bench_fn!(smart_bitor);
 define_server_key_bench_fn!(smart_bitxor);
@@ -221,13 +328,17 @@ define_server_key_bench_fn!(smart_bitxor);
 define_server_key_bench_fn!(unchecked_add);
 define_server_key_bench_fn!(unchecked_sub);
 define_server_key_bench_fn!(unchecked_mul);
+define_server_key_bench_fn!(unchecked_multivalue_mul);
 define_server_key_bench_fn!(unchecked_bitand);
 define_server_key_bench_fn!(unchecked_bitor);
 define_server_key_bench_fn!(unchecked_bitxor);
 
 define_server_key_bench_scalar_fn!(smart_scalar_add);
+define_server_key_bench_scalar_fn!(smart_multivalue_scalar_add);
 define_server_key_bench_scalar_fn!(smart_scalar_sub);
+define_server_key_bench_scalar_fn!(smart_multivalue_scalar_sub);
 define_server_key_bench_scalar_fn!(smart_scalar_mul);
+define_server_key_bench_scalar_fn!(smart_multivalue_scalar_mul);
 
 define_server_key_bench_scalar_fn!(unchecked_scalar_add);
 define_server_key_bench_scalar_fn!(unchecked_scalar_sub);
@@ -236,9 +347,13 @@ define_server_key_bench_scalar_fn!(unchecked_small_scalar_mul);
 criterion_group!(
     smart_arithmetic_operation,
     smart_neg,
+    smart_multivalue_neg,
     smart_add,
+    smart_multivalue_add,
     smart_sub,
+    smart_multivalue_sub,
     smart_mul,
+    smart_multivalue_mul,
     smart_bitand,
     smart_bitor,
     smart_bitxor,
@@ -247,8 +362,11 @@ criterion_group!(
 criterion_group!(
     smart_scalar_arithmetic_operation,
     smart_scalar_add,
+    smart_multivalue_scalar_add,
     smart_scalar_sub,
+    smart_multivalue_scalar_sub,
     smart_scalar_mul,
+    smart_multivalue_scalar_mul,
 );
 
 criterion_group!(
@@ -256,6 +374,7 @@ criterion_group!(
     unchecked_add,
     unchecked_sub,
     unchecked_mul,
+    unchecked_multivalue_mul,
     unchecked_bitand,
     unchecked_bitor,
     unchecked_bitxor,
@@ -268,7 +387,7 @@ criterion_group!(
     unchecked_small_scalar_mul,
 );
 
-criterion_group!(misc, full_propagate,);
+criterion_group!(misc, propagate, full_propagate, multivalue_propagate, multivalue_full_propagate,);
 
 criterion_main!(
     smart_arithmetic_operation,

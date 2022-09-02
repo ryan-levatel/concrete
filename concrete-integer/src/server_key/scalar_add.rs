@@ -201,6 +201,16 @@ impl ServerKey {
         ct
     }
 
+    pub fn smart_multivalue_scalar_add(&self, ct: &mut Ciphertext, scalar: u64) -> Ciphertext {
+        if !self.is_scalar_add_possible(ct, scalar) {
+            self.multivalue_full_propagate(ct);
+        }
+
+        let mut ct = ct.clone();
+        self.unchecked_scalar_add_assign(&mut ct, scalar);
+        ct
+    }
+
     /// Computes homomorphically the addition of ciphertext with a scalar.
     ///
     /// The result is assigned to the `ct_left` ciphertext.
@@ -230,6 +240,13 @@ impl ServerKey {
     pub fn smart_scalar_add_assign(&self, ct: &mut Ciphertext, scalar: u64) {
         if !self.is_scalar_add_possible(ct, scalar) {
             self.full_propagate(ct);
+        }
+        self.unchecked_scalar_add_assign(ct, scalar);
+    }
+
+    pub fn smart_multivalue_scalar_add_assign(&self, ct: &mut Ciphertext, scalar: u64) {
+        if !self.is_scalar_add_possible(ct, scalar) {
+            self.multivalue_full_propagate(ct);
         }
         self.unchecked_scalar_add_assign(ct, scalar);
     }

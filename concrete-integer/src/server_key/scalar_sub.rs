@@ -230,4 +230,20 @@ impl ServerKey {
 
         self.unchecked_scalar_sub_assign(ct, scalar);
     }
+
+    pub fn smart_multivalue_scalar_sub(&self, ct: &mut Ciphertext, scalar: u64) -> Ciphertext {
+        if !self.is_scalar_sub_possible(ct, scalar) {
+            self.multivalue_full_propagate(ct);
+        }
+
+        self.unchecked_scalar_sub(ct, scalar)
+    }
+
+    pub fn smart_multivalue_scalar_sub_assign(&self, ct: &mut Ciphertext, scalar: u64) {
+        if !self.is_scalar_sub_possible(ct, scalar) {
+            self.multivalue_full_propagate(ct);
+        }
+
+        self.unchecked_scalar_sub_assign(ct, scalar);
+    }
 }

@@ -209,6 +209,13 @@ impl ServerKey {
         self.unchecked_small_scalar_mul(ctxt, scalar)
     }
 
+    pub fn smart_multivalue_small_scalar_mul(&self, ctxt: &mut Ciphertext, scalar: u64) -> Ciphertext {
+        if !self.is_small_scalar_mul_possible(ctxt, scalar) {
+            self.multivalue_full_propagate(ctxt);
+        }
+        self.unchecked_small_scalar_mul(ctxt, scalar)
+    }
+
     /// Computes homomorphically a multiplication between a scalar and a ciphertext.
     ///
     /// `small` means the scalar shall value fit in a __shortint block__.
@@ -243,6 +250,13 @@ impl ServerKey {
     pub fn smart_small_scalar_mul_assign(&self, ctxt: &mut Ciphertext, scalar: u64) {
         if !self.is_small_scalar_mul_possible(ctxt, scalar) {
             self.full_propagate(ctxt);
+        }
+        self.unchecked_small_scalar_mul_assign(ctxt, scalar);
+    }
+
+    pub fn smart_multivalue_small_scalar_mul_assign(&self, ctxt: &mut Ciphertext, scalar: u64) {
+        if !self.is_small_scalar_mul_possible(ctxt, scalar) {
+            self.multivalue_full_propagate(ctxt);
         }
         self.unchecked_small_scalar_mul_assign(ctxt, scalar);
     }
@@ -361,5 +375,59 @@ impl ServerKey {
 
     pub fn smart_scalar_mul_assign(&self, ctxt: &mut Ciphertext, scalar: u64) {
         *ctxt = self.smart_scalar_mul(ctxt, scalar);
+    }
+
+    pub fn smart_multivalue_scalar_mul(&self, ctxt: &mut Ciphertext, scalar: u64) -> Ciphertext {
+        let mask = (self.key.message_modulus.0 - 1) as u64;
+
+        //Propagate the carries before doing the multiplications
+        self.multivalue_full_propagate(ctxt);
+
+        //Store the computations
+        let mut map: BTreeMap<u64, Ciphertext> = BTreeMap::new();
+
+        let mut result = self.create_trivial_zero(
+            ctxt.ct_vec.len(),
+            ctxt.message_modulus_vec.clone(),
+            ctxt.key_id_vec.clone(),
+        );
+
+        let mut tmp;
+
+        let mut b_i = 1_u64;
+        for i in 0..ctxt.ct_vec.len() {
+            //lambda = sum u_ib^i
+            let u_ib_i = scalar & (mask * b_i);
+            let u_i = u_ib_i / b_i;
+
+            if u_i == 0 {
+                //update the power b^{i+1}
+                b_i *= self.key.message_modulus.0 as u64;
+                continue;
+            } else if u_i == 1 {
+                // tmp = ctxt * 1 * b^i
+                tmp = self.blockshift(ctxt, i);
+            } else {
+                tmp = map
+                    .entry(u_i)
+                    .or_insert_with(|| self.smart_multivalue_small_scalar_mul(ctxt, u_i))
+                    .clone();
+
+                //tmp = ctxt* u_i * b^i
+                tmp = self.blockshift(&tmp, i);
+            }
+
+            //update the result
+            result = self.smart_multivalue_add(&mut result, &mut tmp);
+
+            //update the power b^{i+1}
+            b_i *= self.key.message_modulus.0 as u64;
+        }
+
+        result
+    }
+
+    pub fn smart_multivalue_scalar_mul_assign(&self, ctxt: &mut Ciphertext, scalar: u64) {
+        *ctxt = self.smart_multivalue_scalar_mul(ctxt, scalar);
     }
 }

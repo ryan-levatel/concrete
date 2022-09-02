@@ -239,4 +239,21 @@ impl ServerKey {
         }
         self.unchecked_add_assign(ct_left, ct_right);
     }
+
+    pub fn smart_multivalue_add(&self, ct_left: &mut Ciphertext, ct_right: &mut Ciphertext) -> Ciphertext {
+        let mut result = ct_left.clone();
+
+        self.smart_multivalue_add_assign(&mut result, ct_right);
+
+        result
+    }
+
+    pub fn smart_multivalue_add_assign(&self, ct_left: &mut Ciphertext, ct_right: &mut Ciphertext) {
+        //If the ciphertext cannot be added together without exceeding the capacity of a ciphertext
+        if !self.is_add_possible(ct_left, ct_right) {
+            self.multivalue_full_propagate(ct_left);
+            self.multivalue_full_propagate(ct_right);
+        }
+        self.unchecked_add_assign(ct_left, ct_right);
+    }
 }

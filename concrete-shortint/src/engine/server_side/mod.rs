@@ -5,6 +5,9 @@ use crate::server_key::MaxDegree;
 use crate::{Ciphertext, ClientKey, ServerKey};
 use concrete_core::prelude::*;
 use std::cmp::min;
+use concrete_core::backends::core::private::crypto::bootstrap::FourierBuffers;
+use concrete_core::backends::core::private::crypto::bootstrap::multivaluepbs::generate_fourier_polynomial_multivalue;
+use concrete_core::backends::core::private::crypto::lwe::LweCiphertext;
 
 mod add;
 mod bitwise_op;
@@ -303,5 +306,78 @@ impl ShortintEngine {
             .unwrap();
         ct.degree = Degree(modular_value);
         Ok(())
+    }
+
+    pub fn bivaluepbs<F1, F2>(
+        &mut self,
+        sks: &ServerKey,
+        ct_in: &Ciphertext,
+        f_1: F1,
+        f_2: F2,
+    ) -> EngineResult<(Ciphertext, Ciphertext)>
+        where
+            F1: Fn(u64) -> u64,
+            F2: Fn(u64) -> u64,
+    {
+        //Keyswitch the ciphertext
+        let mut selector =
+            LweCiphertext::allocate(0_u64, sks.bootstrapping_key.0.key_size().to_lwe_size());
+        sks.key_switching_key
+            .0
+            .keyswitch_ciphertext(&mut selector, &ct_in.ct.0);
+
+        let mut buffers = FourierBuffers::new(
+            sks.bootstrapping_key.polynomial_size(),
+            sks.bootstrapping_key.glwe_dimension().to_glwe_size(),
+        );
+
+        let modulus = (sks.message_modulus.0 * sks.carry_modulus.0) as u64;
+        //Generate accumulators
+        //=========================================================
+        let poly_acc = vec![
+            generate_fourier_polynomial_multivalue(
+                f_1,
+                modulus as usize,
+                sks.bootstrapping_key.polynomial_size(),
+            ),
+            generate_fourier_polynomial_multivalue(
+                f_2,
+                modulus as usize,
+                sks.bootstrapping_key.polynomial_size(),
+            ),
+        ];
+        //=========================================================
+
+        let vec_lwe = sks.bootstrapping_key.0.multivalue_programmable_bootstrap(
+            &selector,
+            modulus,
+            &poly_acc,
+            &mut buffers,
+        );
+
+        let c_1 = Ciphertext {
+            ct: LweCiphertext64(vec_lwe[0].clone()),
+            degree: Degree(sks.message_modulus.0 - 1),
+            message_modulus: sks.message_modulus,
+            carry_modulus: sks.carry_modulus,
+        };
+
+        let c_2 = Ciphertext {
+            ct: LweCiphertext64(vec_lwe[1].clone()),
+            degree: Degree(sks.message_modulus.0 - 1),
+            message_modulus: sks.message_modulus,
+            carry_modulus: sks.carry_modulus,
+        };
+
+        Ok((c_1, c_2))
+    }
+
+    pub fn message_and_carry_extract(
+        &mut self,
+        sks: &ServerKey,
+        ct_in: &Ciphertext,
+    ) -> EngineResult<(Ciphertext, Ciphertext)> {
+        let base = sks.message_modulus.0;
+        self.bivaluepbs(sks, ct_in, |x| (x % base as u64), |x| (x / base as u64))
     }
 }
