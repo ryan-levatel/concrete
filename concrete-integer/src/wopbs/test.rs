@@ -236,6 +236,7 @@ pub fn wopbs_16_bits(param: Parameters) {
     panic!();
 }
 
+// TODO !!! Seems don't work
 pub fn wopbs_16_lut_test(param: Parameters) {
     let nb_block = 2;
     //Generate the client key and the server key:
@@ -307,7 +308,7 @@ pub fn wopbs_crt_fake_crt(param: Parameters){
     let mut rng = rand::thread_rng();
     println!("param : {:?}", param);
 
-    let basis : Vec<u64> = vec![2,3];
+    let basis : Vec<u64> = vec![4,3];
 
     let nb_block = basis.len();
 
@@ -321,7 +322,7 @@ pub fn wopbs_crt_fake_crt(param: Parameters){
         msg_space *= modulus;
     }
 
-    let nb_test = 1;
+    let nb_test = 10;
 
     for _ in 0..nb_test {
         let clear1 = rng.gen::<u64>() % msg_space;
@@ -329,10 +330,11 @@ pub fn wopbs_crt_fake_crt(param: Parameters){
         let mut ct1 = cks.encrypt_crt(clear1, basis.clone());
         let mut ct2 = cks.encrypt_crt(clear2, basis.clone());
         let mut ct_add = sks.unchecked_add_crt(&ct1, &ct2);
-        let lut = wopbs_key.generate_lut_fake_crt(&ct_add, |x| x*x);
+        let lut = wopbs_key.generate_lut_fake_crt(&ct_add, |x| (x * x) + x);
         let res = cks.decrypt_crt(&ct_add);
-        println!("LUT = {:?}", lut);
+        //println!("LUT = {:?}", lut);
         let ct_res = wopbs_key.wopbs_with_degree(&sks, &mut ct_add, &lut);
+
         let res = cks.decrypt_crt(&ct_res);
         assert_eq!(res, ((clear1+clear2)*(clear1+clear2)) % msg_space);
     }
@@ -393,7 +395,7 @@ pub fn wopbs_bivariate_crt_fake(param: Parameters){
 
     println!("MSG SPAC = {}", msg_space);
 
-    let nb_test = 5;
+    let nb_test = 100;
 
     for _ in 0..nb_test {
         let clear1 = rng.gen::<u64>() % msg_space;
@@ -403,11 +405,16 @@ pub fn wopbs_bivariate_crt_fake(param: Parameters){
         let mut ct1 = cks.encrypt_crt(clear1, basis.clone());
         let mut ct2 = cks.encrypt_crt(clear2, basis.clone());
         //let ct_add = sks.unchecked_add(&ct1, &ct2);
-        let lut = wopbs_key.generate_lut_bivariate_crt(&ct1, &ct2, |x,y| max(x,x));
+        let lut = wopbs_key.generate_lut_bivariate_crt(&ct1, &ct2, |x,y| (x * y) + y);
         // let res = cks.decrypt_crt(&ct_add);
-        println!("LUT = {:?}", lut);
+        //println!("LUT = {:?}", lut);
         let ct_res = wopbs_key.bivariate_wopbs_with_degree(&sks, &ct1, &ct2, &lut);
         let res = cks.decrypt_crt(&ct_res);
-        assert_eq!(res, (max(clear1, clear1)) % msg_space);
+        if res != max(clear1,clear2){
+            println!("clear 1 = {:?}", clear1);
+            println!("clear 2 = {:?}", clear2);
+            println!("res     = {:?}", res)
+        }
+        assert_eq!(res, ((clear1 * clear2) + clear2) % msg_space);
     }
 }
