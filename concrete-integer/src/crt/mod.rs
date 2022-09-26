@@ -522,12 +522,10 @@ impl CRTVecServerKey {
     /// ]);
     ///
     /// let clear_1 = 14;
-    /// let clear_2 = 11;
     /// let basis = vec![2, 3, 5];
     /// let keys_id = gen_key_id(&vec![0, 1, 2]);
     /// // Encrypt two messages
     /// let mut ctxt_1 = cks.encrypt_crt_several_keys(&clear_1, &basis, &keys_id);
-    /// let mut ctxt_2 = cks.encrypt_crt_several_keys(&clear_2, &basis, &keys_id);
     ///
     /// // Compute homomorphically a multiplication
     /// sks.arithmetic_function_crt_many_keys_assign(&mut ctxt_1, |x| x * x);
@@ -570,12 +568,10 @@ impl CRTVecServerKey {
     /// ]);
     ///
     /// let clear_1 = 14;
-    /// let clear_2 = 11;
     /// let basis = vec![2, 3, 5];
     /// let keys_id = gen_key_id(&vec![0, 1, 2]);
     /// // Encrypt two messages
     /// let mut ctxt_1 = cks.encrypt_crt_several_keys(&clear_1, &basis, &keys_id);
-    /// let mut ctxt_2 = cks.encrypt_crt_several_keys(&clear_2, &basis, &keys_id);
     ///
     /// // Compute homomorphically a multiplication
     /// sks.arithmetic_function_crt_many_keys_assign_parallelized(&mut ctxt_1, |x| x * x);

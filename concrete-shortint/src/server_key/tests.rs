@@ -74,16 +74,16 @@ macro_rules! create_parametrized_test_bivariate_pbs_compliant{
             PARAM_MESSAGE_1_CARRY_4,
             PARAM_MESSAGE_1_CARRY_5,
             PARAM_MESSAGE_1_CARRY_6,
-            PARAM_MESSAGE_1_CARRY_7,
+            // PARAM_MESSAGE_1_CARRY_7,
             PARAM_MESSAGE_2_CARRY_2,
             PARAM_MESSAGE_2_CARRY_3,
             PARAM_MESSAGE_2_CARRY_4,
             PARAM_MESSAGE_2_CARRY_5,
-            PARAM_MESSAGE_2_CARRY_6,
+            // PARAM_MESSAGE_2_CARRY_6,
             PARAM_MESSAGE_3_CARRY_3,
-            PARAM_MESSAGE_3_CARRY_4,
-            PARAM_MESSAGE_3_CARRY_5,
-            PARAM_MESSAGE_4_CARRY_4
+            PARAM_MESSAGE_3_CARRY_4
+            // PARAM_MESSAGE_3_CARRY_5,
+            // PARAM_MESSAGE_4_CARRY_4
         });
     };
 }
@@ -113,6 +113,7 @@ create_parametrized_test!(shortint_unchecked_left_shift);
 create_parametrized_test!(shortint_unchecked_sub);
 create_parametrized_test!(shortint_smart_sub);
 create_parametrized_test!(shortint_mul_small_carry);
+// create_parametrized_test!(shortint_bivaluepbs);
 
 //These functions are compatible with some parameter sets where the carry modulus is larger than
 // the message modulus.
@@ -146,6 +147,7 @@ create_parametrized_test_bivariate_pbs_compliant!(shortint_smart_mul_msb);
 create_parametrized_test_bivariate_pbs_compliant!(
     shortint_encrypt_with_message_modulus_smart_add_and_mul
 );
+create_parametrized_test_bivariate_pbs_compliant!(shortint_bivaluepbs);
 
 /// test encryption and decryption with the LWE client key
 fn shortint_encrypt_decrypt(param: Parameters) {
@@ -246,6 +248,45 @@ fn shortint_keyswitch_bootstrap(param: Parameters) {
     }
 
     println!("fail_rate = {}/{}", failures, 100);
+    assert_eq!(0, failures);
+}
+
+
+fn shortint_bivaluepbs(param: Parameters) {
+    let keys = KEY_CACHE.get_from_param(param);
+    let (cks, sks) = (keys.client_key(), keys.server_key());
+
+    //RNG
+    let mut rng = rand::thread_rng();
+
+    let modulus = cks.parameters.message_modulus.0 as u64;
+    let mut failures = 0;
+
+    let f_1 = |x| x;
+    let f_2 = |x| (x * x) % modulus;
+
+    for _ in 0..30 {
+        let clear = rng.gen::<u64>() % modulus;
+        let clear_squared = f_2(clear);
+
+        // encryption of an integer
+        let ctxt = cks.encrypt(clear);
+
+        let ct_res = sks.bivaluepbs(&ctxt, f_1, f_2);
+
+        // decryption of ct_res
+        let dec_res_1 = cks.decrypt(&ct_res.0);
+        let dec_res_2 = cks.decrypt(&ct_res.1);
+
+        if clear != dec_res_1 && clear_squared != dec_res_2 {
+            failures += 1;
+        }
+
+        // assert
+        // assert_eq!(clear_0, dec_res);
+    }
+
+    println!("fail_rate = {}/{}", failures, 30);
     assert_eq!(0, failures);
 }
 

@@ -162,7 +162,7 @@ impl ServerKey {
             self.unchecked_scalar_left_shift_assign(ct, modified_remainder);
 
             // We partially propagate in order to not lose information
-            self.multivalue_partial_propagate(ct);
+            self.partial_multivalue_propagate(ct);
             self.blockshift_right_assign(ct, 1_usize);
 
             // We propagate the last block in order to not lose information
@@ -216,6 +216,12 @@ impl ServerKey {
     pub fn unchecked_scalar_left_shift(&self, ct_left: &Ciphertext, shift: usize) -> Ciphertext {
         let mut result = ct_left.clone();
         self.unchecked_scalar_left_shift_assign(&mut result, shift);
+        result
+    }
+
+    pub fn unchecked_multivalue_scalar_left_shift(&self, ct_left: &Ciphertext, shift: usize) -> Ciphertext {
+        let mut result = ct_left.clone();
+        self.unchecked_multivalue_scalar_left_shift_assign(&mut result, shift);
         result
     }
 
