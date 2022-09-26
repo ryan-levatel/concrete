@@ -123,7 +123,7 @@ pub fn split_value_according_to_bit_basis(value: u64, basis: &Vec<u64>) -> Vec<u
 
     let mut output = vec![];
     let mut tmp = value.clone();
-    let mut mask = 1;
+    let mask = 1;
 
     for i in 0..basis.len(){
         let mut tmp_output = 0;
@@ -202,7 +202,7 @@ impl WopbsKey {
         sks: &ServerKey,
         ct_in: &mut T,
         lut: &[Vec<u64>],
-    ) -> T where T:IntegerCiphertext {
+    ) -> T where T: IntegerCiphertext {
         let mut vec_lwe: Vec<LweCiphertext<Vec<u64>>> = vec![];
         let mut ct_in = ct_in.clone();
         // Extraction of each bit for each block
@@ -244,7 +244,7 @@ impl WopbsKey {
         sks: &ServerKey,
         ct_in: &T,
         lut: &[Vec<u64>],
-    ) -> T where T:IntegerCiphertext{
+    ) -> T where T: IntegerCiphertext {
         let mut vec_lwe: Vec<LweCiphertext<Vec<u64>>> = vec![];
         let mut ct_in = ct_in.clone();
         // Extraction of each bit for each block
@@ -291,11 +291,11 @@ impl WopbsKey {
         sks: &ServerKey,
         ct_in: &[T],
         lut: &[Vec<u64>],
-    ) -> T where  T:IntegerCiphertext {
+    ) -> T where T: IntegerCiphertext {
         let mut vec_lwe: Vec<LweCiphertext<Vec<u64>>> = vec![];
         let ct_in = ct_in.clone();
         // Extraction of each bit for each block
-        for i in 0..ct_in.len(){
+        for i in 0..ct_in.len() {
             for block in ct_in[i].clone().blocks_mut().iter_mut() {
                 let delta = (1_usize << 63)
                     / (self.wopbs_key.param.message_modulus.0 * self.wopbs_key.param.carry_modulus.0);
@@ -342,7 +342,7 @@ impl WopbsKey {
         ct_in: &T,
         lut: &[Vec<u64>],
     ) -> T where
-        T:IntegerCiphertext
+        T: IntegerCiphertext
     {
         let mut vec_lwe: Vec<LweCiphertext<Vec<u64>>> = vec![];
         let mut ct_in = ct_in.clone();
@@ -385,7 +385,7 @@ impl WopbsKey {
         ct1: &T,
         ct2: &T,
         lut: &[Vec<u64>],
-    ) -> T where T:IntegerCiphertext {
+    ) -> T where T: IntegerCiphertext {
         let ct = ciphertext_concatenation(ct1, ct2);
         self.wopbs_with_degree(sks, &ct, lut)
     }
@@ -418,34 +418,45 @@ impl WopbsKey {
             F: Fn(u64) -> u64,
             T: IntegerCiphertext,
     {
-        let log_message_modulus = f64::log2((self.wopbs_key.param.message_modulus.0) as f64) as u64;
-        let log_carry_modulus = f64::log2((self.wopbs_key.param.carry_modulus.0) as f64) as u64;
-        let log_basis = log_message_modulus + log_carry_modulus;
-        let delta = 64 - log_basis - 1;
-        let nb_block = ct.blocks().len();
-        let poly_size  = self.wopbs_key.param.polynomial_size.0;
+        let mut bit = vec![];
+        let mut total_bit = 0;
+        let block_nb = ct.blocks().len();
+        let mut modulus = self.wopbs_key.param.message_modulus.0 as u64;
 
-        let mut lut_size = 1 << (nb_block * log_basis as usize);
-        if lut_size < poly_size {
-            lut_size = poly_size;
+        let basis = ct.moduli();
+
+        //This contains the basis of each block depending on the degree
+        let mut vec_deg_basis = vec![];
+
+        for (i, deg) in basis.iter().zip(ct.blocks().iter()) {
+            modulus *= i;
+            let b = f64::log2((deg.degree.0 + 1) as f64).ceil() as u64;
+            vec_deg_basis.push(deg.degree.0 as u64 + 1);
+            total_bit += b;
+            bit.push(b);
         }
-        let mut vec_lut = vec![vec![0; lut_size]; nb_block];
 
-        for index in 0..1 << (nb_block * log_basis as usize) {
-            // find the value represented by the index
-            let mut value = 0;
-            let mut tmp_index = index;
-            for i in 0..nb_block as u64 {
-                let tmp = tmp_index % (1 << (log_basis * (i + 1)));
-                tmp_index -= tmp;
-                value += tmp >> (log_carry_modulus * i);
-            }
+        let mut lut_size = 1 << total_bit;
+        if 1 << total_bit < self.wopbs_key.param.polynomial_size.0 as u64 {
+            lut_size = self.wopbs_key.param.polynomial_size.0;
+        }
+        let mut vec_lut = vec![vec![0; lut_size]; basis.len()];
 
-            // fill the LUTs
-            for block in 0..nb_block {
-                vec_lut[block][index] = ((f(value as u64) >> (log_message_modulus * block as u64))
-                    % (1 << log_message_modulus))
-                    << delta;
+        let basis = ct.moduli()[0];
+
+        let delta: u64 = (1 << 63)
+            / (self.wopbs_key.param.message_modulus.0 * self.wopbs_key.param.carry_modulus.0)
+            as u64;
+
+        for lut_index_val in 0..(1 << total_bit) {
+            let val = encode_radix(lut_index_val, 1 << total_bit, 1);
+            let encoded_with_deg_val = encode_mix_radix(val[0], &vec_deg_basis);
+            let decoded_val = decode_radix(encoded_with_deg_val.clone(), basis);
+            let f_val = f(decoded_val % modulus);
+            let encoded_f_val = encode_radix(f_val, basis, block_nb as u64);
+            for lut_number in 0..block_nb {
+                vec_lut[lut_number as usize][lut_index_val as usize] =
+                    encoded_f_val[lut_number] * delta;
             }
         }
         vec_lut
@@ -484,7 +495,7 @@ impl WopbsKey {
         let log_basis = log_message_modulus + log_carry_modulus;
         let delta = 64 - log_basis;
         let nb_block = ct.blocks().len();
-        let poly_size  = self.wopbs_key.param.polynomial_size.0;
+        let poly_size = self.wopbs_key.param.polynomial_size.0;
         let mut lut_size = 1 << (nb_block * log_basis as usize);
         if lut_size < poly_size {
             lut_size = poly_size;
@@ -538,15 +549,15 @@ impl WopbsKey {
     /// let res = cks.decrypt_crt_not_power_of_two(&ct_res);
     /// assert_eq!(res, clear);
     /// ```
-    pub fn generate_lut_crt_without_padding<F>(&self, ct: &CrtCiphertext, f:F) -> Vec<Vec<u64>>
-    where
-        F: Fn(u64) -> u64,
+    pub fn generate_lut_crt_without_padding<F>(&self, ct: &CrtCiphertext, f: F) -> Vec<Vec<u64>>
+        where
+            F: Fn(u64) -> u64,
     {
         let mut bit = vec![];
         let mut total_bit = 0;
         let mut modulus = 1;
-        let mut basis: Vec<_> = ct.blocks.iter().map(|x| x.message_modulus.0 as u64).collect();
-        basis.reverse();
+        let mut basis: Vec<_> = ct.moduli();
+
         for i in basis.iter() {
             modulus *= i;
             let b = f64::log2(*i as f64).ceil() as u64;
@@ -561,13 +572,13 @@ impl WopbsKey {
 
         for value in 0..modulus {
             let mut index_lut = 0;
-            let mut tmp = 1 << total_bit;
+            let mut tmp = 1;
             for (base, bit) in basis.iter().zip(bit.iter()) {
-                tmp >>= bit;
                 index_lut += (((value % base) << bit) / base) * tmp;
+                tmp <<= bit;
             }
             for (j, b) in basis.iter().enumerate() {
-                vec_lut[basis.len() - 1 - j][index_lut as usize] =
+                vec_lut[j][index_lut as usize] =
                     (((f(value) % b) as u128 * (1 << 64)) / *b as u128) as u64
             }
         }
@@ -603,7 +614,7 @@ impl WopbsKey {
     /// let res = cks.decrypt_crt(&ct_res);
     /// assert_eq!(res, clear);
     /// ```
-    pub fn generate_lut_fake_crt<F>(&self, ct: &CrtCiphertext, f:F) -> Vec<Vec<u64>>
+    pub fn generate_lut_fake_crt<F>(&self, ct: &CrtCiphertext, f: F) -> Vec<Vec<u64>>
         where
             F: Fn(u64) -> u64,
     {
@@ -611,9 +622,8 @@ impl WopbsKey {
         let mut total_bit = 0;
         let mut modulus = 1;
         let mut basis = ct.moduli();
-        //basis.reverse();
-        //let mut ct = ct.clone();
-        for (i, deg) in basis.iter().zip(ct.blocks.iter()){
+
+        for (i, deg) in basis.iter().zip(ct.blocks.iter()) {
             modulus *= i;
             let b = f64::log2((deg.degree.0 + 1) as f64).ceil() as u64;
             println!("deg = {}, b = {}", deg.degree.0, b);
@@ -633,7 +643,7 @@ impl WopbsKey {
                 let deg = f64::log2((block.degree.0 + 1) as f64).ceil() as u64;
                 let delta: u64 = (1 << 63)
                     / (self.wopbs_key.param.message_modulus.0
-                        * self.wopbs_key.param.carry_modulus.0) as u64;
+                    * self.wopbs_key.param.carry_modulus.0) as u64;
                 vec_lut[j][i as usize] =
                     ((f((value % (1 << deg)) % block.message_modulus.0 as u64))
                         % block.message_modulus.0 as u64)
@@ -682,27 +692,25 @@ impl WopbsKey {
     // /// assert_eq!(res, clear);
     // /// ```
 
-    pub fn generate_lut_bivariate_radix<F>(&self, ct1: &RadixCiphertext, ct2: &RadixCiphertext, f:F) -> Vec<Vec<u64>>
-    where
-        F: Fn(u64, u64) -> u64,
+    pub fn generate_lut_bivariate_radix<F>(&self, ct1: &RadixCiphertext, ct2: &RadixCiphertext, f: F) -> Vec<Vec<u64>>
+        where
+            F: Fn(u64, u64) -> u64,
     {
         let mut bit = vec![];
         let mut nb_bit_to_extract = vec![0; 2];
         let block_nb = ct1.blocks.len();
-        let mut modulus = 1;
-
         //ct2 & ct1 should have the same basis
         let mut basis = ct1.moduli();
 
         //This contains the basis of each block depending on the degree
         let mut vec_deg_basis = vec![];
 
+        let mut modulus = 1;
         for (ct_num, ct) in [ct1, ct2].iter().enumerate() {
-            for (i, deg) in basis.iter().zip(ct.blocks.iter()) {
-                modulus *= i;
+            for deg in ct.blocks.iter() {
+                modulus *= self.wopbs_key.param.message_modulus.0 as u64;
                 let b = f64::log2((deg.degree.0 + 1) as f64).ceil() as u64;
                 vec_deg_basis.push(deg.degree.0 as u64 + 1);
-                println!("deg = {}, b = {}", deg.degree.0, b);
                 nb_bit_to_extract[ct_num] += b;
                 bit.push(b);
             }
@@ -711,7 +719,6 @@ impl WopbsKey {
         let total_bit: u64 = nb_bit_to_extract.iter().sum();
 
         let mut lut_size = 1 << total_bit;
-        println!(" total bit {:?}", total_bit);
         if 1 << total_bit < self.wopbs_key.param.polynomial_size.0 as u64 {
             lut_size = self.wopbs_key.param.polynomial_size.0;
         }
@@ -720,7 +727,7 @@ impl WopbsKey {
 
         let delta: u64 = (1 << 63)
             / (self.wopbs_key.param.message_modulus.0 * self.wopbs_key.param.carry_modulus.0)
-                as u64;
+            as u64;
 
         for lut_index_val in 0..(1 << total_bit) {
             let split = encode_radix(lut_index_val, 1 << nb_bit_to_extract[0], 2);
@@ -731,17 +738,6 @@ impl WopbsKey {
             }
             let f_val = f(decoded_val[0] % modulus, decoded_val[1] % modulus);
             let encoded_f_val = encode_radix(f_val, basis, block_nb as u64);
-
-            println!(
-                "index = {}, split = {:?}, vec_deg_basis = {:?}, basis={}, \
-            \
-            decoded_val = \
-            {:?}, \
-            f_dec = {}, encoded = \
-            {:?}",
-                lut_index_val, split, vec_deg_basis, basis, decoded_val, f_val, encoded_f_val
-            );
-
             for lut_number in 0..block_nb {
                 vec_lut[lut_number as usize][lut_index_val as usize] =
                     encoded_f_val[lut_number] * delta;
@@ -788,7 +784,7 @@ impl WopbsKey {
             F: Fn(u64, u64) -> u64,
     {
         let mut bit = vec![];
-        let mut nb_bit_to_extract = vec![0;2];
+        let mut nb_bit_to_extract = vec![0; 2];
         let mut block_nb = ct1.blocks.len();
         let mut modulus = 1;
 
@@ -796,7 +792,7 @@ impl WopbsKey {
         let mut basis = ct1.moduli();
 
 
-        for (ct_num, ct) in   [ct1, ct2].iter().enumerate(){
+        for (ct_num, ct) in [ct1, ct2].iter().enumerate() {
             for (i, deg) in basis.iter().zip(ct.blocks.iter()) {
                 modulus *= i;
                 let b = f64::log2((deg.degree.0 + 1) as f64).ceil() as u64;
@@ -821,7 +817,7 @@ impl WopbsKey {
 
         for index in 0..(1 << total_bit) {
             let mut split = encode_radix(index, 1 << nb_bit_to_extract[0], 2);
-            let mut crt_value = vec![vec![0; ct1.blocks.len()];2];
+            let mut crt_value = vec![vec![0; ct1.blocks.len()]; 2];
             for j in 0..ct1.blocks.len() {
                 let deg_1 = f64::log2((ct1.blocks[j].degree.0 + 1) as f64).ceil() as u64;
                 let deg_2 = f64::log2((ct2.blocks[j].degree.0 + 1) as f64).ceil() as u64;
@@ -830,9 +826,9 @@ impl WopbsKey {
                 split[0] >>= deg_1;
                 split[1] >>= deg_2;
             }
-            let value_1 = i_crt(&ct1.moduli(),&crt_value[0]);
-            let value_2 = i_crt(&ct2.moduli(),&crt_value[1]);
-            for (j, current_mod) in basis.iter().enumerate(){
+            let value_1 = i_crt(&ct1.moduli(), &crt_value[0]);
+            let value_2 = i_crt(&ct2.moduli(), &crt_value[1]);
+            for (j, current_mod) in basis.iter().enumerate() {
                 let value = f(value_1, value_2) % current_mod;
                 vec_lut[j][index as usize] = (value % current_mod) * delta;
             }
@@ -841,42 +837,103 @@ impl WopbsKey {
         vec_lut
     }
 
+    pub fn generate_lut_bivariate_crt_without_padding<F>(&self, ct_1: &CrtCiphertext, f: F) -> Vec<Vec<u64>>
+        where
+            F: Fn(u64, u64) -> u64,
+    {
+        let mut bit = vec![];
+        let mut total_bit = 0;
+        let mut modulus = 1;
+        let basis = ct_1.moduli();
+        for i in basis.iter() {
+            modulus *= i;
+            let b = f64::log2(*i as f64).ceil() as u64;
+            total_bit += b;
+            bit.push(b);
+        }
+        let mut lut_size = 1 << (2 * total_bit);
+        if 1 << (2 * total_bit) < self.wopbs_key.param.polynomial_size.0 as u64 {
+            lut_size = self.wopbs_key.param.polynomial_size.0;
+        }
+        let mut vec_lut = vec![vec![0; lut_size]; basis.len()];
+
+        for value in 0..1 << (2 * total_bit) {
+            let value_1 = value % (1 << total_bit);
+            let value_2 = value >> total_bit;
+            let mut index_lut_1 = 0;
+            let mut index_lut_2 = 0;
+            let mut tmp = 1;
+            for (base, bit) in basis.iter().zip(bit.iter()) {
+                index_lut_1 += (((value_1 % base) << bit) / base) * tmp;
+                index_lut_2 += (((value_2 % base) << bit) / base) * tmp;
+                tmp <<= bit;
+            }
+            let index = (index_lut_2 << total_bit) + (index_lut_1);
+            for (j, b) in basis.iter().enumerate() {
+                vec_lut[j][index as usize] =
+                    (((f(value_1, value_2) % b) as u128 * (1 << 64)) / *b as u128) as u64
+            }
+        }
+        vec_lut
+    }
+
+    pub fn bivariate_wopbs_not_power_of_two(
+        &self,
+        sks: &ServerKey,
+        ct1: &CrtCiphertext,
+        ct2: &CrtCiphertext,
+        lut: &[Vec<u64>],
+    ) -> CrtCiphertext {
+        self.circuit_bootstrap_vertical_packing_v0_without_padding(sks, &[ct1.clone(), ct2.clone()], lut)
+    }
+
+    pub fn wopbs_not_power_of_two(
+        &self,
+        sks: &ServerKey,
+        ct1: &CrtCiphertext,
+        lut: &[Vec<u64>],
+    ) -> CrtCiphertext {
+        self.circuit_bootstrap_vertical_packing_v0_without_padding(sks, &[ct1.clone()], lut)
+    }
+
     pub fn circuit_bootstrap_vertical_packing_v0_without_padding<T>(
         &self,
         sks: &ServerKey,
-        ct_in: &T,
+        vec_ct_in: &[T],
         lut: &[Vec<u64>],
-    ) -> T where T:IntegerCiphertext{
+    ) -> T where T: IntegerCiphertext {
         let mut vec_lwe: Vec<LweCiphertext<Vec<u64>>> = vec![];
-        let mut ct_in = ct_in.clone();
+        for ct_in in vec_ct_in.iter() {
+            let mut ct_in = ct_in.clone();
+            // Extraction of each bit for each block
+            for block in ct_in.blocks_mut().iter_mut() {
+                let nb_bit_to_extract =
+                    f64::log2((block.message_modulus.0 * block.carry_modulus.0) as f64).ceil() as usize;
+                let delta_log = DeltaLog(64 - nb_bit_to_extract);
 
-        // Extraction of each bit for each block
-        for block in ct_in.blocks_mut().iter_mut() {
-            let nb_bit_to_extract =
-                f64::log2((block.message_modulus.0 * block.carry_modulus.0) as f64).ceil() as usize;
-            let delta_log = DeltaLog(64 - nb_bit_to_extract);
+                // trick ( ct - delta/2 + delta/2^4  )
+                let lwe_size = block.ct.0.lwe_size().0;
+                let mut cont = vec![0; lwe_size];
+                cont[lwe_size - 1] =
+                    (1 << (64 - nb_bit_to_extract - 1)) - (1 << (64 - nb_bit_to_extract - 5));
+                let tmp = LweCiphertext::from_container(cont);
+                block.ct.0.update_with_sub(&tmp);
 
-            // trick ( ct - delta/2 + delta/2^4  )
-            let lwe_size = block.ct.0.lwe_size().0;
-            let mut cont = vec![0; lwe_size];
-            cont[lwe_size - 1] =
-                (1 << (64 - nb_bit_to_extract - 1)) - (1 << (64 - nb_bit_to_extract - 5));
-            let tmp = LweCiphertext::from_container(cont);
-            block.ct.0.update_with_sub(&tmp);
+                concrete_shortint::engine::ShortintEngine::with_thread_local_mut
+                    (|engine| {
+                        let (buffers, _, _) = engine.buffers_for_key(&sks.key);
 
-            concrete_shortint::engine::ShortintEngine::with_thread_local_mut
-                (|engine| {
-                    let (buffers, _, _) = engine.buffers_for_key(&sks.key);
-                    let mut vec_lwe_tmp = extract_bit_v0_v1(
-                        delta_log,
-                        &mut block.ct.0,
-                        &sks.key.key_switching_key.0,
-                        &sks.key.bootstrapping_key.0,
-                        &mut buffers.fourier,
-                        nb_bit_to_extract,
-                    );
-                    vec_lwe.append(&mut vec_lwe_tmp);
-                });
+                        let mut vec_lwe_tmp = extract_bit_v0_v1(
+                            delta_log,
+                            &mut block.ct.0,
+                            &sks.key.key_switching_key.0,
+                            &sks.key.bootstrapping_key.0,
+                            &mut buffers.fourier,
+                            nb_bit_to_extract,
+                        );
+                        vec_lwe.append(&mut vec_lwe_tmp);
+                    });
+            }
         }
 
         vec_lwe.reverse();
@@ -888,7 +945,7 @@ impl WopbsKey {
         );
 
         let mut ct_vec_out: Vec<concrete_shortint::Ciphertext> = vec![];
-        for (block, block_out) in ct_in.blocks().iter().zip(vec_ct_out.into_iter()) {
+        for (block, block_out) in vec_ct_in[0].blocks().iter().zip(vec_ct_out.into_iter()) {
             ct_vec_out.push(concrete_shortint::Ciphertext {
                 ct: LweCiphertext64(block_out),
                 degree: Degree(block.message_modulus.0 - 1),
