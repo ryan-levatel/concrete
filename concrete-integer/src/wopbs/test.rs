@@ -287,13 +287,13 @@ pub fn wopbs_crt_without_padding(param: Parameters){
         msg_space *= modulus;
     }
 
-    let nb_test = 100;
+    let nb_test = 10;
 
     for _ in 0..nb_test {
         let clear1 = rng.gen::<u64>() % msg_space;    // Encrypt the integers
         let mut ct1 = cks.encrypt_crt_not_power_of_two(clear1, basis.clone());
 
-        let lut = wopbs_key.generate_lut_without_padding(&ct1, |x| x);
+        let lut = wopbs_key.generate_lut_crt_without_padding(&ct1, |x| x);
 
         let ct_res = wopbs_key.wopbs_not_power_of_two(&sks, &mut ct1, &lut);
         let res = cks.decrypt_crt_not_power_of_two(&ct_res);
@@ -321,7 +321,7 @@ pub fn wopbs_crt_without_padding_bivariate(param: Parameters){
         msg_space *= modulus;
     }
 
-    let nb_test = 100;
+    let nb_test = 10;
     let mut tmp = 0;
     for _ in 0..nb_test {
         let clear1 = rng.gen::<u64>() % msg_space;    // Encrypt the integers
@@ -347,7 +347,7 @@ pub fn wopbs_crt_fake_crt(param: Parameters){
     let mut rng = rand::thread_rng();
     println!("param : {:?}", param);
 
-    let basis : Vec<u64> = vec![4,3,7];
+    let basis : Vec<u64> = vec![4,3];
 
     let nb_block = basis.len();
 
@@ -415,8 +415,8 @@ pub fn wopbs_radix(param: Parameters){
 
         //artificially modify the degree
         for ct in ct1.blocks.iter_mut(){
-            //let degree = param.message_modulus.0 * ((rng.gen::<usize>() % (param.carry_modulus.0 - 1)) + 1 ) ;
-            //ct.degree.0 = degree;
+            let degree = param.message_modulus.0 * ((rng.gen::<usize>() % (param.carry_modulus.0 - 1)) + 1 ) ;
+            ct.degree.0 = degree;
             //println!("deg : {:?}", ct.degree)
         }
         let lut = wopbs_key.generate_lut(&ct1, |x| (x * x) + x);
@@ -453,7 +453,7 @@ pub fn wopbs_bivariate_radix(param: Parameters){
         msg_space *= modulus as u64;
     }
 
-    let nb_test = 100;
+    let nb_test = 10;
 
     for _ in 0..nb_test {
         let clear1 = rng.gen::<u64>() % msg_space;
@@ -507,7 +507,7 @@ pub fn wopbs_bivariate_fake_crt(param: Parameters){
             let degree = param.message_modulus.0 * ((rng.gen::<usize>() % (param.carry_modulus.0 - 1)) + 1 ) ;
             ct_2.degree.0 = degree;
         }
-        let lut = wopbs_key.generate_lut_bivariate_crt(&ct1, &ct2, |x,y| (x * y) + y);
+        let lut = wopbs_key.generate_lut_bivariate_fake_crt(&ct1, &ct2, |x, y| (x * y) + y);
 
         let ct_res = wopbs_key.bivariate_wopbs_with_degree(&sks, &ct1, &ct2, &lut);
         let res = cks.decrypt_crt(&ct_res);
