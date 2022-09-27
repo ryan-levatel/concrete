@@ -79,7 +79,6 @@ impl ServerKey {
     ///
     /// // Encrypt two messages:
     /// let ct1 = cks.encrypt(msg);
-    /// let ct2 = cks.encrypt(msg);
     ///
     /// // Check if we can perform an addition
     /// let res = sks.is_scalar_add_possible(&ct1, scalar);

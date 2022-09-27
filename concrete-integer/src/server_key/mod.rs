@@ -4,17 +4,22 @@
 //! available homomorphic integer operations.
 mod add;
 mod bitwise_op;
-mod crt;
+mod mul_crt;
 mod crt_parallel;
 mod mul;
 mod neg;
-mod scalar_add;
+mod scalar_add_crt;
 mod scalar_mul;
 mod scalar_sub;
 mod shift;
-mod sub;
+mod sub_crt;
 #[cfg(test)]
 mod tests;
+mod add_crt;
+mod neg_crt;
+mod scalar_add;
+mod scalar_mul_crt;
+mod sub;
 
 use crate::ciphertext::{Ciphertext, KeyId};
 use crate::client_key::ClientKey;
@@ -194,6 +199,39 @@ impl ServerKey {
         let len = ctxt.ct_vec.len();
         for i in 0..len {
             self.propagate(ctxt, i);
+        }
+    }
+
+    /// Extract all the messages.
+    ///
+    /// # Example
+    ///
+    ///```rust
+    /// use concrete_integer::gen_keys;
+    /// use concrete_shortint::parameters::PARAM_MESSAGE_2_CARRY_2;
+    ///
+    /// // Generate the client key and the server key:
+    /// let (cks, sks) = gen_keys(&PARAM_MESSAGE_2_CARRY_2, size);
+    ///
+    /// let clear_1 = 14;
+    /// let clear_2 = 14;
+    /// let basis = vec![2, 3, 5];
+    /// // Encrypt two messages
+    /// let mut ctxt_1 = cks.encrypt_crt(clear_1, basis.clone());
+    /// let ctxt_2 = cks.encrypt_crt(clear_2, basis);
+    ///
+    /// // Compute homomorphically a multiplication
+    /// sks.unchecked_add_assign(&mut ctxt_1, &ctxt_2);
+    ///
+    /// sks.full_extract(&mut ctxt_1);
+    ///
+    /// // Decrypt
+    /// let res = cks.decrypt_crt(&ctxt_1);
+    /// assert_eq!((clear_1 + clear_2) % 30, res);
+    /// ```
+    pub fn full_extract(&self, ctxt: &mut Ciphertext) {
+        for ct_i in ctxt.ct_vec.iter_mut() {
+            self.key.message_extract_assign(ct_i);
         }
     }
 }
