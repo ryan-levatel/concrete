@@ -20,6 +20,7 @@ mod neg_crt;
 mod scalar_add;
 mod scalar_mul_crt;
 mod sub;
+mod scalar_sub_crt;
 
 use crate::ciphertext::{Ciphertext, KeyId};
 use crate::client_key::ClientKey;
