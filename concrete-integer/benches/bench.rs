@@ -334,7 +334,7 @@ fn crt(c: &mut Criterion) {
     //scalar mul
     c.bench_function("CRT: Smart_Mul", |b| {
         b.iter(|| {
-            sks.smart_mul_crt_assign(&mut ctxt_1, &mut ctxt_2);
+            sks.smart_crt_mul_assign(&mut ctxt_1, &mut ctxt_2);
         })
     });
     c.bench_function("CRT: Smart_Add", |b| {

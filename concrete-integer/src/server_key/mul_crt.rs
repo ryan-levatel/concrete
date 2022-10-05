@@ -63,20 +63,20 @@ impl ServerKey {
     /// let mut ctxt_2 = cks.encrypt_crt(clear_2, basis);
     ///
     /// // Compute homomorphically a multiplication
-    /// sks.smart_mul_crt_assign(&mut ctxt_1, &mut ctxt_2);
+    /// sks.smart_crt_mul_assign(&mut ctxt_1, &mut ctxt_2);
     ///
     /// // Decrypt
     /// let res = cks.decrypt_crt(&ctxt_1);
     /// assert_eq!((clear_1 * clear_2) % 30, res);
     /// ```
-    pub fn smart_mul_crt_assign(&self, ct_left: &mut Ciphertext, ct_right: &mut Ciphertext) {
+    pub fn smart_crt_mul_assign(&self, ct_left: &mut Ciphertext, ct_right: &mut Ciphertext) {
         for (block_left, block_right) in ct_left.ct_vec.iter_mut().zip(ct_right.ct_vec.iter_mut()) {
             self.key.smart_mul_lsb_assign(block_left, block_right);
         }
     }
     pub fn smart_mul_crt(&self, ct_left: &mut Ciphertext, ct_right: &mut Ciphertext) -> Ciphertext {
         let mut ct_res = ct_left.clone();
-        self.smart_mul_crt_assign(&mut ct_res, ct_right);
+        self.smart_crt_mul_assign(&mut ct_res, ct_right);
         ct_res
     }
 
