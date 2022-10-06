@@ -29,8 +29,8 @@ macro_rules! create_parametrized_test{
         {
             PARAM_MESSAGE_1_CARRY_1,
             PARAM_MESSAGE_2_CARRY_2,
-            PARAM_MESSAGE_3_CARRY_3,
-            PARAM_MESSAGE_4_CARRY_4
+            PARAM_MESSAGE_3_CARRY_3
+            // PARAM_MESSAGE_4_CARRY_4
         });
     };
 }
@@ -1214,21 +1214,24 @@ fn integer_smart_crt_scalar_sub(param: Parameters) {
     //RNG
     let mut rng = rand::thread_rng();
 
+    let mut clear_0 = rng.gen::<u64>() % modulus;
+    let clear_1 = rng.gen::<u64>() % modulus;
+
+    // encryption of an integer
+    let mut ct_zero = cks.encrypt_crt(clear_0, basis.clone());
+
     for _ in 0..NB_TEST {
-        let clear_0 = rng.gen::<u64>() % modulus;
-        let clear_1 = rng.gen::<u64>() % modulus;
-
-        // encryption of an integer
-        let mut ct_zero = cks.encrypt_crt(clear_0, basis.clone());
-
         // add the two ciphertexts
         sks.smart_crt_scalar_sub_assign(&mut ct_zero, clear_1);
 
         // decryption of ct_res
         let dec_res = cks.decrypt_crt(&ct_zero);
 
+        println!("clear_0 = {}, clear_1 = {}, modulus = {}", clear_0, clear_1, modulus);
+
         // assert
-        assert_eq!((clear_0 - clear_1) % modulus, dec_res % modulus);
+        clear_0 = (clear_0 + modulus - clear_1) % modulus;
+        assert_eq!(clear_0, dec_res % modulus);
     }
 }
 
@@ -1251,13 +1254,13 @@ fn integer_smart_crt_sub(param: Parameters) {
     let mut ct_one = cks.encrypt_crt(clear_1, basis);
 
     for _ in 0..NB_TEST {
-        // add the two ciphertexts
+        // sub the two ciphertexts
         sks.smart_crt_sub_assign(&mut ct_zero, &mut ct_one);
 
         // decryption of ct_res
         let dec_res = cks.decrypt_crt(&ct_zero);
 
-        println!("clear_0 = {}, clear_1 = {}, modulus = {}", clear_0, clear_1, modulus);
+        // println!("clear_0 = {}, clear_1 = {}, modulus = {}", clear_0, clear_1, modulus);
 
         // assert
         clear_0 = (clear_0 + modulus - clear_1) % modulus;

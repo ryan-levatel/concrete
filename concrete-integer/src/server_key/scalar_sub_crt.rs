@@ -45,7 +45,7 @@ impl ServerKey {
         //Put each decomposition into a new ciphertext
         for (ct_i, mod_i) in ct.ct_vec.iter_mut().zip(ct.message_modulus_vec.iter()) {
             let neg_scalar = (mod_i - scalar % mod_i) % mod_i;
-            self.key.unchecked_scalar_add_assign(ct_i, neg_scalar as u8);
+            self.key.unchecked_scalar_add_assign_crt(&self.key, ct_i, neg_scalar as u8);
         }
     }
 
