@@ -85,7 +85,10 @@ pub fn encode_mix_radix(mut val: u64, basis: &Vec<u64>, modulus: u64) -> Vec<u64
     let mut output = vec![];
     for basis in basis.iter(){
         output.push(val % modulus);
-        val >>= basis
+        val -= val % modulus;
+        let tmp = (val % (1 << basis)) >> (f64::log2(modulus as f64) as u64);
+        val >>= basis;
+        val += tmp;
     }
     output
 }
@@ -424,7 +427,6 @@ impl WopbsKey {
         let mut vec_lut = vec![vec![0; lut_size]; ct.blocks().len()];
 
         let basis = ct.moduli()[0];
-
         let delta: u64 = (1 << 63)
             / (self.wopbs_key.param.message_modulus.0 * self.wopbs_key.param.carry_modulus.0)
                 as u64;
