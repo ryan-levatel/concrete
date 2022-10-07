@@ -1,6 +1,7 @@
 use crate::server_key::CheckError;
 use crate::server_key::CheckError::CarryFull;
 use crate::{CrtCiphertext, ServerKey};
+use rayon::prelude::*;
 
 impl ServerKey {
     /// Computes homomorphically a subtraction between a ciphertext and a scalar.
@@ -25,59 +26,36 @@ impl ServerKey {
     /// // Encrypt two messages
     /// let mut ctxt_1 = cks.encrypt_crt(clear_1, basis.clone());
     ///
-    /// sks.unchecked_crt_scalar_sub_assign(&mut ctxt_1, clear_2);
+    /// sks.unchecked_crt_scalar_sub_assign_parallelized(&mut ctxt_1, clear_2);
     ///
     /// // Decrypt
     /// let res = cks.decrypt_crt(&ctxt_1);
     /// assert_eq!((clear_1 - clear_2) % 30, res);
     /// ```
-    pub fn unchecked_crt_scalar_sub(&self, ct: &CrtCiphertext, scalar: u64) -> CrtCiphertext {
+    pub fn unchecked_crt_scalar_sub_parallelized(
+        &self,
+        ct: &CrtCiphertext,
+        scalar: u64,
+    ) -> CrtCiphertext {
         let mut result = ct.clone();
-        self.unchecked_crt_scalar_sub_assign(&mut result, scalar);
+        self.unchecked_crt_scalar_sub_assign_parallelized(&mut result, scalar);
         result
     }
 
-    pub fn unchecked_crt_scalar_sub_assign(&self, ct: &mut CrtCiphertext, scalar: u64) {
+    pub fn unchecked_crt_scalar_sub_assign_parallelized(
+        &self,
+        ct: &mut CrtCiphertext,
+        scalar: u64,
+    ) {
         //Put each decomposition into a new ciphertext
-        for (ct_i, mod_i) in ct.blocks.iter_mut().zip(ct.moduli.iter()) {
-            let neg_scalar = (mod_i - scalar % mod_i) % mod_i;
-            self.key
-                .unchecked_scalar_add_assign_crt(ct_i, neg_scalar as u8);
-        }
-    }
-
-    /// Verifies if the subtraction of a ciphertext by scalar can be computed.
-    ///
-    /// # Example
-    ///
-    ///```rust
-    /// use concrete_integer::gen_keys;
-    /// use concrete_shortint::parameters::PARAM_MESSAGE_2_CARRY_2;
-    ///
-    /// // Generate the client key and the server key:
-    /// let (cks, sks) = gen_keys(&PARAM_MESSAGE_2_CARRY_2);
-    ///
-    /// let clear_1 = 14;
-    /// let clear_2 = 7;
-    /// let basis = vec![2, 3, 5];
-    /// // Encrypt two messages
-    /// let mut ctxt_1 = cks.encrypt_crt(clear_1, basis.clone());
-    ///
-    /// let bit = sks.is_crt_scalar_sub_possible(&mut ctxt_1, clear_2);
-    ///
-    /// // Decrypt
-    /// let res = cks.decrypt_crt(&ctxt_1);
-    /// assert_eq!(true, bit);
-    /// ```
-    pub fn is_crt_scalar_sub_possible(&self, ct: &CrtCiphertext, scalar: u64) -> bool {
-        for (ct_i, mod_i) in ct.blocks.iter().zip(ct.moduli.iter()) {
-            let neg_scalar = (mod_i - scalar % mod_i) % mod_i;
-
-            if !self.key.is_scalar_add_possible(ct_i, neg_scalar as u8) {
-                return false;
-            }
-        }
-        true
+        ct.blocks
+            .par_iter_mut()
+            .zip(ct.moduli.par_iter())
+            .for_each(|(ct_i, mod_i)| {
+                let neg_scalar = (mod_i - scalar % mod_i) % mod_i;
+                self.key
+                    .unchecked_scalar_add_assign_crt(ct_i, neg_scalar as u8);
+            });
     }
 
     /// Computes homomorphically a subtraction of a ciphertext by a scalar.
@@ -101,7 +79,7 @@ impl ServerKey {
     ///
     /// let mut ctxt_1 = cks.encrypt_crt(clear_1, basis.clone());
     ///
-    /// let ct_res = sks.checked_crt_scalar_sub(&mut ctxt_1, clear_2)?;
+    /// let ct_res = sks.checked_crt_scalar_sub_parallelized(&mut ctxt_1, clear_2)?;
     ///
     /// // Decrypt:
     /// let dec = cks.decrypt_crt(&ct_res);
@@ -109,13 +87,13 @@ impl ServerKey {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn checked_crt_scalar_sub(
+    pub fn checked_crt_scalar_sub_parallelized(
         &self,
         ct: &CrtCiphertext,
         scalar: u64,
     ) -> Result<CrtCiphertext, CheckError> {
         if self.is_crt_scalar_sub_possible(ct, scalar) {
-            Ok(self.unchecked_crt_scalar_sub(ct, scalar))
+            Ok(self.unchecked_crt_scalar_sub_parallelized(ct, scalar))
         } else {
             Err(CarryFull)
         }
@@ -142,7 +120,7 @@ impl ServerKey {
     ///
     /// let mut ctxt_1 = cks.encrypt_crt(clear_1, basis.clone());
     ///
-    /// sks.checked_crt_scalar_sub_assign(&mut ctxt_1, clear_2)?;
+    /// sks.checked_crt_scalar_sub_assign_parallelized(&mut ctxt_1, clear_2)?;
     ///
     /// // Decrypt:
     /// let dec = cks.decrypt_crt(&ctxt_1);
@@ -150,13 +128,13 @@ impl ServerKey {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn checked_crt_scalar_sub_assign(
+    pub fn checked_crt_scalar_sub_assign_parallelized(
         &self,
         ct: &mut CrtCiphertext,
         scalar: u64,
     ) -> Result<(), CheckError> {
         if self.is_crt_scalar_sub_possible(ct, scalar) {
-            self.unchecked_crt_scalar_sub_assign(ct, scalar);
+            self.unchecked_crt_scalar_sub_assign_parallelized(ct, scalar);
             Ok(())
         } else {
             Err(CarryFull)
@@ -180,25 +158,29 @@ impl ServerKey {
     /// // Encrypt two messages
     /// let mut ctxt_1 = cks.encrypt_crt(clear_1, basis.clone());
     ///
-    /// sks.smart_crt_scalar_sub_assign(&mut ctxt_1, clear_2);
+    /// sks.smart_crt_scalar_sub_assign_parallelized(&mut ctxt_1, clear_2);
     ///
     /// // Decrypt
     /// let res = cks.decrypt_crt(&ctxt_1);
     /// assert_eq!((clear_1 - clear_2) % 30, res);
     /// ```
-    pub fn smart_crt_scalar_sub(&self, ct: &mut CrtCiphertext, scalar: u64) -> CrtCiphertext {
+    pub fn smart_crt_scalar_sub_parallelized(
+        &self,
+        ct: &mut CrtCiphertext,
+        scalar: u64,
+    ) -> CrtCiphertext {
         if !self.is_crt_scalar_sub_possible(ct, scalar) {
-            self.full_extract(ct);
+            self.full_extract_parallelized(ct);
         }
 
-        self.unchecked_crt_scalar_sub(ct, scalar)
+        self.unchecked_crt_scalar_sub_parallelized(ct, scalar)
     }
 
-    pub fn smart_crt_scalar_sub_assign(&self, ct: &mut CrtCiphertext, scalar: u64) {
+    pub fn smart_crt_scalar_sub_assign_parallelized(&self, ct: &mut CrtCiphertext, scalar: u64) {
         if !self.is_crt_scalar_sub_possible(ct, scalar) {
-            self.full_extract(ct);
+            self.full_extract_parallelized(ct);
         }
 
-        self.unchecked_crt_scalar_sub_assign(ct, scalar);
+        self.unchecked_crt_scalar_sub_assign_parallelized(ct, scalar);
     }
 }

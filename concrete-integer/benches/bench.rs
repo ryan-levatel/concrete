@@ -725,7 +725,7 @@ fn concrete_integer_unchecked_mul_crt_16_bits(c: &mut Criterion) {
     // add the two ciphertexts
     group.bench_function(id, |b| {
         b.iter(|| {
-            sks.unchecked_mul_crt_assign(&mut ct_zero, &ct_one);
+            sks.unchecked_crt_mul_assign(&mut ct_zero, &ct_one);
         })
     });
 }
@@ -846,7 +846,7 @@ fn concrete_integer_unchecked_mul_crt_32_bits(c: &mut Criterion) {
     // add the two ciphertexts
     group.bench_function(id, |b| {
         b.iter(|| {
-            sks.unchecked_mul_crt_assign(&mut ct_zero, &ct_one);
+            sks.unchecked_crt_mul_assign(&mut ct_zero, &ct_one);
         })
     });
 }

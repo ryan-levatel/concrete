@@ -1,6 +1,3 @@
-use concrete_shortint::Ciphertext;
-use crate::server_key::CheckError;
-use crate::server_key::CheckError::CarryFull;
 use crate::{CrtCiphertext, ServerKey};
 
 impl ServerKey {
@@ -28,12 +25,16 @@ impl ServerKey {
     /// let res = cks.decrypt_crt(&ctxt_1);
     /// assert_eq!((clear_1 + clear_2) % 30, res);
     /// ```
-    pub fn smart_crt_add(&self, ct_left: &mut CrtCiphertext, ct_right: &mut CrtCiphertext) -> CrtCiphertext {
-        let mut result = ct_left.clone();
-
-        self.smart_crt_add_assign(&mut result, ct_right);
-
-        result
+    pub fn smart_crt_add(
+        &self,
+        ct_left: &mut CrtCiphertext,
+        ct_right: &mut CrtCiphertext,
+    ) -> CrtCiphertext {
+        if !self.is_crt_add_possible(ct_left, ct_right) {
+            self.full_extract(ct_left);
+            self.full_extract(ct_right);
+        }
+        self.unchecked_crt_add(ct_left, ct_right)
     }
 
     pub fn smart_crt_add_assign(&self, ct_left: &mut CrtCiphertext, ct_right: &mut CrtCiphertext) {
@@ -58,5 +59,15 @@ impl ServerKey {
         for (ct_left_i, ct_right_i) in ct_left.blocks.iter_mut().zip(ct_right.blocks.iter()) {
             self.key.unchecked_add_assign(ct_left_i, ct_right_i);
         }
+    }
+
+    pub fn unchecked_crt_add(
+        &self,
+        ct_left: &CrtCiphertext,
+        ct_right: &CrtCiphertext,
+    ) -> CrtCiphertext {
+        let mut ct_res = ct_left.clone();
+        self.unchecked_crt_add_assign(&mut ct_res, ct_right);
+        ct_res
     }
 }
